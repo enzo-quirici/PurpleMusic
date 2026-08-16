@@ -519,11 +519,11 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
             --radius-sm: 8px; --radius-md: 16px; --radius-lg: 24px; --radius-full: 9999px;
         }
         * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-        body { margin:0; font-family:'Segoe UI',system-ui,-apple-system,sans-serif; background:var(--bg-dark); color:var(--text); padding-bottom:160px; padding-left:260px; padding-top:70px; overflow-x:hidden; transition:padding-left .3s cubic-bezier(.2,.8,.2,1); }
+        body { margin:0; font-family:'Segoe UI',system-ui,-apple-system,sans-serif; background:var(--bg-dark); color:var(--text); padding-bottom:96px; padding-left:260px; padding-top:70px; overflow-x:hidden; transition:padding-left .3s cubic-bezier(.2,.8,.2,1); }
         ::-webkit-scrollbar { width:8px; } ::-webkit-scrollbar-track { background:var(--bg-dark); } ::-webkit-scrollbar-thumb { background:var(--border-color); border-radius:var(--radius-full); } ::-webkit-scrollbar-thumb:hover { background:var(--primary); }
 
         /* Barre latérale gauche façon YouTube Music (desktop) */
-        header { display:flex; flex-direction:column; align-items:stretch; justify-content:flex-start; gap:8px; padding:25px 16px; background:var(--header-bg); backdrop-filter:blur(15px); border-right:1px solid rgba(61,43,86,.5); border-bottom:none; position:fixed; top:70px; left:0; z-index:100; width:260px; height:calc(100vh - 70px); box-sizing:border-box; overflow-y:auto; overflow-x:hidden; transition:width .3s cubic-bezier(.2,.8,.2,1),padding .3s cubic-bezier(.2,.8,.2,1); }
+        header { display:flex; flex-direction:column; align-items:stretch; justify-content:flex-start; gap:8px; padding:25px 16px; background:var(--header-bg); backdrop-filter:blur(15px); border-right:1px solid rgba(61,43,86,.5); border-bottom:none; position:fixed; top:70px; left:0; z-index:100; width:260px; height:calc(100vh - 70px - 72px); box-sizing:border-box; overflow-y:auto; overflow-x:hidden; transition:width .3s cubic-bezier(.2,.8,.2,1),padding .3s cubic-bezier(.2,.8,.2,1); }
         nav { display:flex; flex-direction:column; gap:4px; margin-left:0; flex-grow:1; width:100%; }
         nav span { display:flex; align-items:center; gap:14px; cursor:pointer; font-weight:600; color:var(--text-muted); transition:.3s; white-space:nowrap; padding:12px 14px; border-radius:var(--radius-sm); width:100%; box-sizing:border-box; }
         .nav-icon { flex-shrink:0; }
@@ -601,33 +601,44 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         .playlist-card { background:var(--bg-panel); border-radius:24px; padding:25px; border:1px solid rgba(61,43,86,.5); transition:transform .3s,box-shadow .3s; }
         .playlist-card:hover { transform:translateY(-5px); box-shadow:0 15px 30px rgba(0,0,0,.4); border-color:var(--primary); }
 
-        #queue-panel { position:fixed; right:-360px; top:70px; width:340px; height:calc(100vh - 70px); background:var(--mob-nav-bg); backdrop-filter:blur(20px); border-left:1px solid rgba(255,255,255,.1); z-index:999; transition:.4s cubic-bezier(.4,0,.2,1); padding:25px; padding-bottom:120px; box-shadow:-10px 0 40px rgba(0,0,0,.5); overflow-y:auto; }
-        #queue-panel.open { right:0; }
         .queue-item { display:flex; align-items:center; gap:12px; padding:10px; border-radius:12px; margin-bottom:8px; cursor:pointer; border:1px solid transparent; transition:.2s; }
         .queue-item.active { background:rgba(var(--primary-rgb),.15); border-color:var(--primary); }
         .queue-item:hover { background:rgba(255,255,255,.05); }
-        .close-queue-mobile { display:none; width:100%; margin-bottom:20px; background:var(--elevated-bg); border:none; color:var(--player-text); padding:12px; border-radius:var(--radius-sm); font-weight:bold; }
 
-        #player-bar { position:fixed; bottom:25px; left:calc(50% + 130px); transform:translateX(-50%); width:94%; max-width:1000px; background:var(--player-bg); backdrop-filter:blur(20px) saturate(180%); padding:15px 30px; border-radius:20px; display:flex; align-items:center; z-index:1000; border:1px solid rgba(255,255,255,.1); box-shadow:0 15px 50px rgba(0,0,0,.6); transition:left .3s cubic-bezier(.2,.8,.2,1); }
-        body.sidebar-collapsed #player-bar { left:calc(50% + 44px); }
-        .player-info { display:flex; align-items:center; gap:15px; width:25%; min-width:180px; }
-        #player-cover { width:56px; height:56px; border-radius:12px; object-fit:cover; box-shadow:0 5px 15px rgba(0,0,0,.3); }
-        .progress-container { flex-grow:1; margin:0 20px; }
+        /* Barre de lecture façon YouTube Music : liseré de progression collé au
+           bord supérieur (pleine largeur), puis une ligne à trois zones —
+           transport+temps à gauche, pochette/titre centrés, volume+options à
+           droite — identique en mode normal (#player-bar) et plein écran
+           (.fp-bottombar), qui partagent les mêmes classes .pb-*. */
+        #player-bar { position:fixed; bottom:0; left:0; width:100%; height:72px; background:var(--player-bg); backdrop-filter:blur(20px) saturate(180%); padding:0 24px; border-radius:0; display:grid; grid-template-columns:1fr auto 1fr; align-items:center; column-gap:20px; z-index:1000; border-top:1px solid rgba(255,255,255,.1); box-shadow:0 -4px 20px rgba(0,0,0,.3); box-sizing:border-box; }
+        /* Le lecteur plein écran a sa propre barre du bas (.fp-bottombar) qui
+           occupe exactement le même rectangle ; sans cette règle, la barre
+           mini restait quand même affichée dessous et, comme .fp-bottombar
+           n'est pas totalement opaque, on voyait les deux se superposer
+           (double affichage du chrono, pochette qui se mélange). */
+        #player-bar:has(~ #full-player.active) { display:none; }
+        .progress-bg.pb-seek { position:absolute; top:0; left:0; width:100%; height:3px; border-radius:0; z-index:2; }
+        .pb-seek .progress-fill { border-radius:0; }
+        .pb-transport { display:flex; align-items:center; gap:10px; justify-self:start; }
+        .pb-time { display:flex; align-items:center; gap:4px; margin-left:6px; font-size:.72em; color:var(--text-muted); font-family:monospace; white-space:nowrap; }
+        .pb-time-sep { opacity:.5; }
+        .pb-right { display:flex; align-items:center; gap:14px; justify-self:end; }
+        .player-info { display:flex; align-items:center; gap:12px; justify-self:center; max-width:320px; min-width:0; overflow:hidden; cursor:pointer; }
+        #player-cover { width:44px; height:44px; border-radius:8px; object-fit:cover; box-shadow:0 4px 10px rgba(0,0,0,.3); flex-shrink:0; }
         .progress-bg { background:rgba(255,255,255,.1); height:6px; border-radius:10px; cursor:pointer; position:relative; overflow:hidden; }
         .progress-fill { background:linear-gradient(90deg,var(--primary),var(--accent)); height:100%; width:0%; border-radius:10px; }
-        .controls { display:flex; align-items:center; gap:12px; }
-        .control-btn { background:none; border:none; color:var(--player-text); cursor:pointer; opacity:.8; transition:.2s; padding:8px; border-radius:50%; display:flex; align-items:center; justify-content:center; }
-        .control-btn svg { width:24px; height:24px; fill:var(--player-text); display:block; }
+        .control-btn { background:none; border:none; color:var(--player-text); cursor:pointer; opacity:.8; transition:.2s; padding:8px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+        .control-btn svg { width:20px; height:20px; fill:var(--player-text); display:block; }
         .control-btn:hover { background:rgba(255,255,255,.1); opacity:1; }
         .control-btn.active { color:var(--accent); opacity:1; position:relative; }
         .control-btn.active svg { fill:var(--accent); }
         .control-btn.active::after { content:''; position:absolute; bottom:0; left:50%; transform:translateX(-50%); width:4px; height:4px; background:var(--accent); border-radius:50%; }
         .loop-badge { display:none; position:absolute; top:-2px; right:-2px; width:14px; height:14px; border-radius:50%; background:var(--accent); color:var(--bg-dark); font-size:9px; font-weight:800; line-height:1; align-items:center; justify-content:center; font-family:system-ui,sans-serif; box-shadow:0 0 0 2px var(--bg-panel); }
         .loop-badge.show { display:flex; }
-        #masterPlay { background:white; border:none; width:50px; height:50px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:transform .2s,box-shadow .2s; box-shadow:0 0 20px rgba(255,255,255,.3); flex-shrink:0; }
+        #masterPlay { background:white; border:none; width:38px; height:38px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:transform .2s,box-shadow .2s; box-shadow:0 0 20px rgba(255,255,255,.3); flex-shrink:0; }
         #masterPlay:hover { transform:scale(1.1); box-shadow:0 0 30px rgba(255,255,255,.5); }
-        #masterPlay svg { fill:#0f0c1d; width:22px; height:22px; }
-        .volume-container { display:flex; align-items:center; gap:8px; width:110px; margin-left:10px; }
+        #masterPlay svg { fill:#0f0c1d; width:18px; height:18px; }
+        .volume-container { display:flex; align-items:center; gap:8px; width:100px; }
         input[type=range].vol-slider { -webkit-appearance:none; width:100%; height:4px; background:linear-gradient(90deg,var(--accent) 100%,rgba(255,255,255,.2) 100%); border-radius:5px; outline:none; cursor:pointer; }
         input[type=range].vol-slider::-webkit-slider-thumb { -webkit-appearance:none; width:12px; height:12px; background:#fff; border-radius:50%; cursor:pointer; transition:.2s; }
 
@@ -694,7 +705,7 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         .fp-btn.active { background:rgba(var(--primary-rgb),.6); }
         .fp-body, .fp-bottombar { position:relative; z-index:1; }
 
-        .fp-body { flex:1; min-height:0; display:flex; flex-direction:row; }
+        .fp-body { flex:1; min-height:0; display:flex; flex-direction:row; padding-bottom:72px; }
         .fp-main { flex:1; min-width:0; display:flex; align-items:center; justify-content:center; padding:40px; box-sizing:border-box; }
         .fp-art-container { width:100%; max-width:560px; }
         #fp-cover { width:100%; height:auto; aspect-ratio:1/1; object-fit:cover; border-radius:8px; box-shadow:0 20px 60px rgba(0,0,0,.5); display:block; }
@@ -710,23 +721,22 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         .fp-tab-pane { display:none; }
         .fp-tab-pane.active { display:block; }
 
-        /* Barre de contrôle pleine largeur en bas (façon YouTube Music) */
-        .fp-bottombar { flex-shrink:0; display:flex; align-items:center; gap:24px; padding:12px 24px; border-top:1px solid rgba(255,255,255,.08); background:rgba(0,0,0,.2); box-sizing:border-box; }
-        .fp-bb-track { display:flex; align-items:center; gap:12px; width:260px; flex-shrink:0; overflow:hidden; }
-        .fp-bb-track img { width:48px; height:48px; border-radius:8px; object-fit:cover; flex-shrink:0; box-shadow:0 4px 10px rgba(0,0,0,.3); }
+        /* Barre de contrôle pleine largeur en bas (façon YouTube Music) : détachée
+           du conteneur #full-player (qui s'arrête à droite de la barre latérale)
+           pour occuper toute la largeur de l'écran, exactement comme #player-bar
+           en mode normal. Cachée par défaut ; affichée uniquement quand le lecteur
+           plein écran est actif, via le sélecteur #full-player.active ci-dessous. */
+        .fp-bottombar { position:fixed; left:0; bottom:0; width:100%; height:72px; display:none; grid-template-columns:1fr auto 1fr; align-items:center; column-gap:20px; padding:0 24px; border-top:1px solid rgba(255,255,255,.1); background:var(--player-bg); backdrop-filter:blur(20px) saturate(180%); box-sizing:border-box; z-index:5001; }
+        #full-player.active .fp-bottombar { display:grid; }
+        .fp-bb-track { display:flex; align-items:center; gap:12px; justify-self:center; max-width:320px; min-width:0; overflow:hidden; }
+        .fp-bb-track img { width:44px; height:44px; border-radius:8px; object-fit:cover; flex-shrink:0; box-shadow:0 4px 10px rgba(0,0,0,.3); }
         .fp-bb-info { overflow:hidden; }
         #fp-title { font-size:.95em; font-weight:700; white-space:nowrap; overflow:hidden; position:relative; mask-image:linear-gradient(to right,transparent 0%,black 5%,black 95%,transparent 100%); -webkit-mask-image:linear-gradient(to right,transparent 0%,black 5%,black 95%,transparent 100%); }
         #fp-title span { display:inline-block; }
         .scrolling-active { padding-left:100%; animation:marquee 12s linear infinite; }
         @keyframes marquee { 0%{transform:translate(0,0)} 100%{transform:translate(-100%,0)} }
         #fp-artist { font-size:.8em; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .fp-bb-center { flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; gap:6px; }
-        .fp-bb-transport { display:flex; align-items:center; gap:18px; }
-        .fp-bb-transport .control-btn svg { width:20px; height:20px; }
-        .fp-bb-play svg { width:26px !important; height:26px !important; }
-        .fp-bb-progress { display:flex; align-items:center; gap:10px; width:100%; max-width:600px; font-size:.72em; color:var(--text-muted); font-family:monospace; }
-        .fp-bb-progress .progress-bg { flex:1; height:4px; }
-        .fp-bb-right { width:160px; flex-shrink:0; justify-content:flex-end; }
+        .fp-bb-play svg { width:18px !important; height:18px !important; }
 
         #mobile-bottom-nav { display:none; position:fixed; bottom:0; left:0; width:100%; background:var(--mob-nav-bg); backdrop-filter:blur(15px); border-top:1px solid rgba(255,255,255,.05); z-index:3000; justify-content:space-around; padding:10px 0 15px 0; height:70px; box-sizing:border-box; }
         .mob-nav-item { display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--text-muted); font-size:.7em; background:none; border:none; gap:5px; font-weight:600; width:20%; }
@@ -754,14 +764,13 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
             .carousel-card { flex-basis:120px; width:120px; }
             .carousel-card img { width:120px; height:120px; }
             .carousel-nav { display:none; }
-            #player-bar { width:calc(100% - 20px); max-width:100%; bottom:80px; left:50%; transform:translateX(-50%); border-radius:16px; flex-direction:column; padding:12px 15px; box-sizing:border-box; }
-            .player-info { width:100%; justify-content:flex-start; margin-bottom:5px; }
-            .progress-container { width:100%; margin:8px 0 12px 0; }
-            .controls { width:100%; justify-content:space-between; gap:0; padding:0 10px; box-sizing:border-box; }
+            #player-bar { width:calc(100% - 20px); max-width:100%; height:auto; bottom:80px; left:50%; transform:translateX(-50%); border-radius:16px; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; row-gap:8px; padding:14px 15px 12px; box-sizing:border-box; }
+            .player-info { width:100%; order:1; max-width:none; justify-content:flex-start; }
+            .pb-transport { order:2; }
+            .pb-right { display:contents; }
             #masterPlay { width:45px; height:45px; }
-            #player-bar .volume-container { display:none; }
-            #queue-panel { width:100%; right:-100%; top:0; height:100%; z-index:2000; border-left:none; }
-            .close-queue-mobile { display:block; }
+            .volume-container, .pb-expand { display:none; }
+            #loopBtn, #shuffleBtn, #fp-loopBtn, #fp-shuffleBtn { order:3; }
             .modal-content { width:90%; margin:8% auto; padding:25px; }
             .settings-grid { grid-template-columns:1fr; }
             #mobile-bottom-nav { display:flex; }
@@ -772,10 +781,10 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
             #fp-sidebar { position:absolute; inset:0; width:0; height:100%; z-index:20; border-left:none; transition:width .3s cubic-bezier(.2,.8,.2,1); }
             #fp-sidebar.open { width:100%; }
             .fp-sidebar-close { display:block; }
-            .fp-bottombar { flex-wrap:wrap; padding:10px 15px 16px; gap:10px; }
-            .fp-bb-track { width:100%; }
-            .fp-bb-center { order:3; width:100%; }
-            .fp-bb-right { display:none; }
+            .fp-body { padding-bottom:0; }
+            .fp-bottombar { position:static; height:auto; z-index:1; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; row-gap:8px; padding:10px 15px 16px; }
+            #full-player.active .fp-bottombar { display:flex; }
+            .fp-bb-track { width:100%; order:1; max-width:none; }
         }
     </style>
 </head>
@@ -919,12 +928,6 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
 </div></div>
 <?php endif; ?>
 
-<div id="queue-panel">
-    <button class="close-queue-mobile" onclick="toggleQueue()">▼ Fermer la file</button>
-    <h3 style="margin-top:0;color:var(--accent);font-size:1.2em;border-bottom:1px solid rgba(255,255,255,.1);padding-bottom:15px;">File d'attente</h3>
-    <div id="queue-list" style="margin-top:15px;"><p style="color:var(--text-muted);font-size:.9em;">Aucune musique...</p></div>
-</div>
-
 <main id="accueil">
     <div id="home-carousels"></div>
     <div class="controls-container">
@@ -980,9 +983,6 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
             <svg viewBox="0 0 24 24"><path d="M19.4 13c0-.3.1-.6.1-1s0-.7-.1-1l2.1-1.7c.2-.2.2-.4.1-.6l-2-3.5c-.1-.2-.3-.3-.6-.2l-2.5 1c-.5-.4-1.1-.7-1.7-1l-.4-2.7c0-.2-.2-.4-.5-.4h-4c-.3 0-.5.2-.5.4l-.4 2.7c-.6.2-1.2.6-1.7 1l-2.5-1c-.2-.1-.5 0-.6.2l-2 3.5c-.1.2-.1.5.1.6L4.6 11c-.1.3-.1.6-.1 1s0 .7.1 1l-2.1 1.7c-.2.2-.2.4-.1.6l2 3.5c.1.2.3.3.6.2l2.5-1c.5.4 1.1.7 1.7 1l.4 2.7c0 .2.2.4.5.4h4c.3 0 .5-.2.5-.4l.4-2.7c.6-.2 1.2-.6 1.7-1l2.5 1c.2.1.5 0 .6-.2l2-3.5c.1-.2.1-.5-.1-.6L19.4 13zM12 15.5c-1.9 0-3.5-1.6-3.5-3.5s1.6-3.5 3.5-3.5 3.5 1.6 3.5 3.5-1.6 3.5-3.5 3.5z"/></svg>Admin
         </button>
     <?php endif; ?>
-    <button class="mob-nav-item" onclick="toggleQueue()">
-        <svg viewBox="0 0 24 24"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>File
-    </button>
     <button class="mob-nav-item" onclick="openModal('uploadModal')">
         <svg viewBox="0 0 24 24"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>Upload
     </button>
@@ -1103,29 +1103,28 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
 
 <!-- Player -->
 <div id="player-bar">
-    <div class="player-info" onclick="openSmartPlayer()" style="cursor:pointer;">
+    <div class="progress-bg pb-seek" id="progress-area"><div class="progress-fill" id="progress-bar"></div></div>
+    <div class="pb-transport">
+        <button class="control-btn" onclick="prevTrack()"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button>
+        <button id="masterPlay" onclick="togglePlay()"><svg viewBox="0 0 24 24" style="margin-left:2px;"><path d="M8 5v14l11-7z"/></svg></button>
+        <button class="control-btn" onclick="nextTrack()"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
+        <div class="pb-time"><span id="curr-time">0:00</span><span class="pb-time-sep">/</span><span id="total-time">0:00</span></div>
+    </div>
+    <div class="player-info" onclick="openSmartPlayer()">
         <img src="covers/<?php echo htmlspecialchars($default_cover); ?>" id="player-cover" loading="lazy">
         <div style="overflow:hidden;flex:1;">
             <div id="play-title" style="font-weight:700;font-size:.95em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Prêt à écouter</div>
             <div id="play-status" style="font-size:.75em;color:var(--accent);margin-top:2px;">Arrêté</div>
         </div>
     </div>
-    <div class="progress-container">
-        <div class="progress-bg" id="progress-area"><div class="progress-fill" id="progress-bar"></div></div>
-        <div style="display:flex;justify-content:space-between;font-size:.7em;color:var(--text-muted);margin-top:6px;font-family:monospace;">
-            <span id="curr-time">0:00</span><span id="total-time">0:00</span>
-        </div>
-    </div>
-    <div class="controls">
-        <button class="control-btn" id="shuffleBtn" onclick="toggleShuffle()"><svg viewBox="0 0 24 24"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg></button>
-        <button class="control-btn" onclick="prevTrack()"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button>
-        <button id="masterPlay" onclick="togglePlay()"><svg viewBox="0 0 24 24" style="margin-left:2px;"><path d="M8 5v14l11-7z"/></svg></button>
-        <button class="control-btn" onclick="nextTrack()"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
-        <button class="control-btn" id="loopBtn" onclick="toggleLoop()" title="Lecture normale"><svg viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg><span class="loop-badge">1</span></button>
+    <div class="pb-right">
         <div class="volume-container">
             <svg viewBox="0 0 24 24" width="20" height="20" fill="var(--text-muted)"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
             <input type="range" id="desktop-vol" class="vol-slider" min="0" max="1" step="0.01" value="1">
         </div>
+        <button class="control-btn" id="loopBtn" onclick="toggleLoop()" title="Lecture normale"><svg viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg><span class="loop-badge">1</span></button>
+        <button class="control-btn" id="shuffleBtn" onclick="toggleShuffle()"><svg viewBox="0 0 24 24"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg></button>
+        <button class="control-btn pb-expand" onclick="openSmartPlayer()" title="Agrandir"><svg viewBox="0 0 24 24"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg></button>
     </div>
 </div>
 
@@ -1157,6 +1156,13 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         </div>
     </div>
     <div class="fp-bottombar">
+        <div class="progress-bg pb-seek" id="fp-progress-area"><div class="progress-fill" id="fp-progress-bar"></div></div>
+        <div class="pb-transport">
+            <button class="control-btn" onclick="prevTrack()"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button>
+            <button class="control-btn fp-bb-play" id="fp-masterPlay" onclick="togglePlay()"><svg viewBox="0 0 24 24" style="margin-left:2px;"><path d="M8 5v14l11-7z"/></svg></button>
+            <button class="control-btn" onclick="nextTrack()"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
+            <div class="pb-time"><span id="fp-curr-time">0:00</span><span class="pb-time-sep">/</span><span id="fp-total-time">0:00</span></div>
+        </div>
         <div class="fp-bb-track">
             <img id="fp-bb-cover" src="covers/<?php echo htmlspecialchars($default_cover); ?>" loading="lazy">
             <div class="fp-bb-info">
@@ -1164,23 +1170,13 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
                 <div id="fp-artist">Artiste</div>
             </div>
         </div>
-        <div class="fp-bb-center">
-            <div class="fp-bb-transport">
-                <button class="control-btn" id="fp-shuffleBtn" onclick="toggleShuffle()"><svg viewBox="0 0 24 24"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg></button>
-                <button class="control-btn" onclick="prevTrack()"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button>
-                <button class="control-btn fp-bb-play" id="fp-masterPlay" onclick="togglePlay()"><svg viewBox="0 0 24 24" style="margin-left:2px;"><path d="M8 5v14l11-7z"/></svg></button>
-                <button class="control-btn" onclick="nextTrack()"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
-                <button class="control-btn" id="fp-loopBtn" onclick="toggleLoop()" style="position:relative;" title="Lecture normale"><svg viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg><span class="loop-badge">1</span></button>
+        <div class="pb-right">
+            <div class="volume-container">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="var(--player-text)"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+                <input type="range" id="mobile-vol" class="vol-slider" min="0" max="1" step="0.01" value="1">
             </div>
-            <div class="fp-bb-progress">
-                <span id="fp-curr-time">0:00</span>
-                <div class="progress-bg" id="fp-progress-area"><div class="progress-fill" id="fp-progress-bar" style="background:linear-gradient(90deg,var(--primary),var(--accent));"></div></div>
-                <span id="fp-total-time">0:00</span>
-            </div>
-        </div>
-        <div class="volume-container fp-bb-right">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="var(--player-text)"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
-            <input type="range" id="mobile-vol" class="vol-slider" min="0" max="1" step="0.01" value="1">
+            <button class="control-btn" id="fp-loopBtn" onclick="toggleLoop()" style="position:relative;" title="Lecture normale"><svg viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg><span class="loop-badge">1</span></button>
+            <button class="control-btn" id="fp-shuffleBtn" onclick="toggleShuffle()"><svg viewBox="0 0 24 24"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg></button>
         </div>
     </div>
 </div>
@@ -1230,13 +1226,13 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
     const playTitle    = document.getElementById('play-title');
     const playCover    = document.getElementById('player-cover');
     const playStatus   = document.getElementById('play-status');
-    const queueList    = document.getElementById('queue-list');
-    const queuePanel   = document.getElementById('queue-panel');
 
     let CURRENT_VIEW_DATA = []; let renderedCount = 0; const RENDER_CHUNK = 30;
     let originalQueue = []; let queue = []; let currentIndex = 0; let loopMode = 0; let isShuffle = false;
     let currentPlaylistId = null; let currentSection = 'accueil';
     let hiddenGenres = JSON.parse(localStorage.getItem('hiddenGenres') || '[]');
+    let adaptiveThemeEnabled = (localStorage.getItem('theme_base') === 'adaptive');
+    const adaptiveColorCache = new Map();
 
     const playIcon  = '<svg viewBox="0 0 24 24" style="margin-left:2px;"><path d="M8 5v14l11-7z"/></svg>';
     const pauseIcon = '<svg viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>';
@@ -1423,7 +1419,7 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
 
         renderThemeSwatches();
         const savedTheme = localStorage.getItem('theme_base');
-        if (savedTheme) applyTheme(savedTheme);
+        if (savedTheme && savedTheme !== 'adaptive') applyTheme(savedTheme);
         renderEqSliders();
 
         document.getElementById('upload-form').addEventListener('submit', handleUploadSubmit);
@@ -1437,7 +1433,6 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         if (isNaN(s) || !isFinite(s)) return '0:00';
         return Math.floor(s/60) + ':' + String(Math.floor(s%60)).padStart(2,'0');
     }
-    function toggleQueue() { queuePanel.classList.toggle('open'); }
     function toggleSidebar() {
         const collapsed = document.body.classList.toggle('sidebar-collapsed');
         localStorage.setItem('sidebar_collapsed', collapsed ? '1' : '0');
@@ -1450,25 +1445,24 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
     function closeFullPlayer() { document.getElementById('full-player').classList.remove('active'); document.body.style.overflow = 'auto'; }
 
     function updateQueueUI() {
-        const containers = [queueList, document.getElementById('fp-queue-list')].filter(Boolean);
+        const container = document.getElementById('fp-queue-list');
+        if (!container) return;
         if (!queue.length) {
-            containers.forEach(c => c.innerHTML = '<p style="color:var(--text-muted);">File vide...</p>');
+            container.innerHTML = '<p style="color:var(--text-muted);">File vide...</p>';
             return;
         }
-        containers.forEach(c => c.innerHTML = '');
+        container.innerHTML = '';
         queue.forEach((track, index) => {
-            containers.forEach(container => {
-                const div = document.createElement('div'); div.className = `queue-item ${index === currentIndex ? 'active' : ''}`;
-                div.innerHTML = `
-                    <img src="${escapeHTML(track.cover_url)}" loading="lazy" style="width:36px;height:36px;border-radius:8px;object-fit:cover;">
-                    <div style="flex:1;overflow:hidden;">
-                        <div style="font-size:.9em;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHTML(track.title)}</div>
-                        <div style="font-size:.75em;color:var(--text-muted);">${escapeHTML(track.artist)}</div>
-                    </div>
-                    ${index === currentIndex ? '<span style="color:var(--accent);font-size:1.5em;">•</span>' : ''}`;
-                div.onclick = () => { currentIndex = index; loadTrack(true); };
-                container.appendChild(div);
-            });
+            const div = document.createElement('div'); div.className = `queue-item ${index === currentIndex ? 'active' : ''}`;
+            div.innerHTML = `
+                <img src="${escapeHTML(track.cover_url)}" loading="lazy" style="width:36px;height:36px;border-radius:8px;object-fit:cover;">
+                <div style="flex:1;overflow:hidden;">
+                    <div style="font-size:.9em;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHTML(track.title)}</div>
+                    <div style="font-size:.75em;color:var(--text-muted);">${escapeHTML(track.artist)}</div>
+                </div>
+                ${index === currentIndex ? '<span style="color:var(--accent);font-size:1.5em;">•</span>' : ''}`;
+            div.onclick = () => { currentIndex = index; loadTrack(true); };
+            container.appendChild(div);
         });
     }
 
@@ -1484,7 +1478,6 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         }
         if (currentIndex === -1) currentIndex = 0;
         loadTrack(autoPlay);
-        if (autoPlay && window.innerWidth > 768 && !queuePanel.classList.contains('open')) toggleQueue();
     }
 
     async function playPlaylist(ids, pId = null) {
@@ -1495,7 +1488,6 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         currentPlaylistId = pId; originalQueue = [...data];
         queue = isShuffle ? shuffleArray([...data]) : [...data];
         currentIndex = 0; loadTrack(true);
-        if (window.innerWidth > 768 && !queuePanel.classList.contains('open')) toggleQueue();
     }
 
     function loadTrack(autoPlay = true) {
@@ -1508,6 +1500,7 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         playTitle.innerText = track.title;
         playCover.src       = track.cover_url;
         playStatus.innerText = track.artist || 'Artiste inconnu';
+        updateAdaptiveTheme(track);
 
         const fpTitle = document.getElementById('fp-title');
         fpTitle.innerHTML = `<span id="fp-title-text">${escapeHTML(track.title)}</span>`;
@@ -1864,6 +1857,7 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
     // ===========================================================
     const THEME_PRESETS = [
         { name: 'Site (Défaut)', base: null },
+        { name: 'Adaptatif',     base: 'adaptive' },
         { name: 'White Mode',     base: '#FFFFFF' },
         { name: 'AMOLED',         base: '#000000' },
         { name: 'Vibrant Purple', base: '#4A148C' },
@@ -1992,12 +1986,13 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
     }
 
     const THEME_VARS = ['--bg-dark','--bg-panel','--primary','--accent','--primary-rgb','--accent-rgb','--text','--text-muted','--border-color','--search-bg','--header-bg','--mob-nav-bg','--player-bg','--fp-gradient-1','--fp-gradient-2','--modal-bg','--input-bg','--elevated-bg','--player-text'];
-    function applyTheme(baseHex) {
+    // Applique les variables CSS calculées à partir d'une couleur de base, sans
+    // toucher au localStorage — utilisé aussi bien par un thème statique choisi
+    // par l'utilisateur que par le mode adaptatif (une couleur par morceau).
+    function applyThemeColors(baseHex, gradient2Hex) {
         const style = document.documentElement.style;
         if (!baseHex) {
             THEME_VARS.forEach(v => style.removeProperty(v));
-            localStorage.removeItem('theme_base');
-            renderThemeSwatches();
             return;
         }
         const panel    = derivePanel(baseHex);
@@ -2024,12 +2019,141 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         style.setProperty('--mob-nav-bg', hexToRgba(panel, 0.95));
         style.setProperty('--player-bg', hexToRgba(panel, 0.85));
         style.setProperty('--fp-gradient-1', panel);
-        style.setProperty('--fp-gradient-2', baseHex);
+        style.setProperty('--fp-gradient-2', gradient2Hex || baseHex);
         style.setProperty('--modal-bg', panel);
         style.setProperty('--input-bg', inputBg);
         style.setProperty('--elevated-bg', elevated);
         style.setProperty('--player-text', text);
-        localStorage.setItem('theme_base', baseHex);
+    }
+    function applyTheme(baseHex) {
+        adaptiveThemeEnabled = false;
+        applyThemeColors(baseHex);
+        if (baseHex) localStorage.setItem('theme_base', baseHex);
+        else localStorage.removeItem('theme_base');
+        renderThemeSwatches();
+    }
+    // --- Thème adaptatif : palette extraite de la pochette de la piste en cours ---
+    // On échantillonne toute l'image (pas un seul pixel), on regroupe les pixels
+    // proches en "spots" de couleur (quantification), puis on note chaque spot
+    // contre plusieurs profils cible (vif/doux × clair/normal/sombre — même
+    // principe que l'Android Palette API) pour choisir des couleurs réellement
+    // représentatives plutôt qu'un pixel isolé qui pourrait être un artefact.
+    const PALETTE_TARGETS = [
+        { name: 'vibrant',      minS: 0.35, targetS: 1.0, minL: 0.30, targetL: 0.50, maxL: 0.70 },
+        { name: 'lightVibrant', minS: 0.35, targetS: 1.0, minL: 0.55, targetL: 0.74, maxL: 1.00 },
+        { name: 'darkVibrant',  minS: 0.35, targetS: 1.0, minL: 0.00, targetL: 0.26, maxL: 0.45 },
+        { name: 'muted',        minS: 0.00, targetS: 0.3, minL: 0.30, targetL: 0.50, maxL: 0.70 },
+        { name: 'lightMuted',   minS: 0.00, targetS: 0.3, minL: 0.55, targetL: 0.74, maxL: 1.00 },
+        { name: 'darkMuted',    minS: 0.00, targetS: 0.3, minL: 0.00, targetL: 0.26, maxL: 0.45 },
+    ];
+    function extractPalette(imgSrc) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => {
+                try {
+                    const size = 64;
+                    const canvas = document.createElement('canvas');
+                    canvas.width = size; canvas.height = size;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, size, size);
+                    const data = ctx.getImageData(0, 0, size, size).data;
+                    const QUANT = 24; // taille des seaux de quantification (regroupe les teintes proches)
+                    const buckets = new Map();
+                    for (let i = 0; i < data.length; i += 4) {
+                        const r = data[i], g = data[i + 1], b = data[i + 2], a = data[i + 3];
+                        if (a < 200) continue;
+                        const [, , l] = rgbToHsl(r, g, b);
+                        if (l < 0.03 || l > 0.97) continue; // ignore le noir/blanc pur (bords, letterbox)
+                        const key = Math.round(r / QUANT) + '_' + Math.round(g / QUANT) + '_' + Math.round(b / QUANT);
+                        let bucket = buckets.get(key);
+                        if (!bucket) { bucket = { count: 0, r: 0, g: 0, b: 0 }; buckets.set(key, bucket); }
+                        bucket.count++; bucket.r += r; bucket.g += g; bucket.b += b;
+                    }
+                    if (buckets.size === 0) { resolve(null); return; }
+                    const allClusters = [...buckets.values()].map(c => {
+                        const r = c.r / c.count, g = c.g / c.count, b = c.b / c.count;
+                        const [, s, l] = rgbToHsl(r, g, b);
+                        return { hex: rgbToHex(r, g, b), count: c.count, s, l };
+                    });
+                    const totalPixels = allClusters.reduce((sum, c) => sum + c.count, 0);
+                    // On ne garde que les spots réellement présents dans l'image (au moins ~1.5%
+                    // des pixels valides) avant de matcher les profils cible : sinon un pixel isolé
+                    // qui "colle" bien à un profil (ex: un minuscule reflet très saturé) pouvait
+                    // être choisi alors qu'il est quasi invisible à l'œil sur la pochette.
+                    const MIN_POPULATION_FRACTION = 0.015;
+                    const dominant = allClusters.reduce((a, b) => (b.count > a.count ? b : a));
+                    const clusters = allClusters
+                        .filter(c => c.count / totalPixels >= MIN_POPULATION_FRACTION)
+                        .sort((a, b) => b.count - a.count);
+                    const maxPop = clusters.length ? clusters[0].count : dominant.count;
+                    const WEIGHT_SAT = 2, WEIGHT_LUMA = 3, WEIGHT_POP = 5;
+                    const scoreFor = (target, c) => {
+                        if (c.l < target.minL || c.l > target.maxL || c.s < target.minS) return -Infinity;
+                        const satScore = 1 - Math.abs(c.s - target.targetS);
+                        const lumScore = 1 - Math.abs(c.l - target.targetL);
+                        const popScore = c.count / maxPop;
+                        return satScore * WEIGHT_SAT + lumScore * WEIGHT_LUMA + popScore * WEIGHT_POP;
+                    };
+                    const used = new Set();
+                    const palette = {};
+                    PALETTE_TARGETS.forEach(target => {
+                        let best = null, bestScore = -Infinity;
+                        clusters.forEach(c => {
+                            if (used.has(c.hex)) return;
+                            const sc = scoreFor(target, c);
+                            if (sc > bestScore) { bestScore = sc; best = c; }
+                        });
+                        if (best && bestScore > -Infinity) { palette[target.name] = best.hex; used.add(best.hex); }
+                    });
+                    palette.dominant = dominant.hex;
+                    resolve(palette);
+                } catch (e) { reject(e); }
+            };
+            img.onerror = reject;
+            img.src = imgSrc;
+        });
+    }
+    // Plafonne saturation/luminosité d'une couleur extraite pour éviter qu'un
+    // spot très saturé (ex: rouge vif, orange néon) devienne le fond de toute
+    // l'appli une fois utilisé comme --bg-dark — le thème adaptatif doit rester
+    // sombre et discret, jamais criard, quelle que soit la pochette.
+    function tameAdaptiveColor(hex, maxS, maxL) {
+        const { r, g, b } = hexToRgb(hex);
+        let [h, s, l] = rgbToHsl(r, g, b);
+        s = Math.min(s, maxS);
+        l = Math.min(l, maxL);
+        return rgbToHex(...hslToRgb(h, s, l));
+    }
+    // Combine deux spots de la palette : un ton sombre et discret comme base du
+    // thème (contrôle panneau/texte/contraste via applyThemeColors), et un ton
+    // un peu plus vif comme second point du dégradé ambiant du lecteur plein
+    // écran (déjà assombri par le filtre CSS brightness(.55) qui le recouvre).
+    function paletteToTheme(palette) {
+        if (!palette) return null;
+        const rawBase = palette.darkMuted || palette.darkVibrant || palette.muted || palette.vibrant || palette.dominant;
+        const rawGradient2 = palette.vibrant || palette.lightVibrant || palette.lightMuted || null;
+        const base = tameAdaptiveColor(rawBase, 0.5, 0.20);
+        const gradient2 = rawGradient2 ? tameAdaptiveColor(rawGradient2, 0.65, 0.55) : null;
+        return { base, gradient2 };
+    }
+    function updateAdaptiveTheme(track) {
+        if (!adaptiveThemeEnabled || !track || !track.cover_url) return;
+        const key = track.cover_url;
+        const cached = adaptiveColorCache.get(key);
+        if (cached) { applyThemeColors(cached.base, cached.gradient2); return; }
+        extractPalette(key).then(palette => {
+            const theme = paletteToTheme(palette) || { base: '#4A148C', gradient2: null };
+            adaptiveColorCache.set(key, theme);
+            const current = queue[currentIndex];
+            if (adaptiveThemeEnabled && current && current.cover_url === key) applyThemeColors(theme.base, theme.gradient2);
+        }).catch(() => {});
+    }
+    function enableAdaptiveTheme() {
+        adaptiveThemeEnabled = true;
+        localStorage.setItem('theme_base', 'adaptive');
+        const track = queue[currentIndex];
+        if (track) updateAdaptiveTheme(track); else applyThemeColors(null);
         renderThemeSwatches();
     }
     function renderThemeSwatches() {
@@ -2041,9 +2165,11 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
             const isActive = p.base === savedBase || (p.base === null && !savedBase);
             const div = document.createElement('div');
             div.className = 'theme-swatch' + (isActive ? ' active' : '');
-            const bg = p.base || `linear-gradient(135deg,${SERVER_PRIMARY},${SERVER_ACCENT})`;
+            const bg = p.base === 'adaptive'
+                ? 'conic-gradient(from 180deg,#ff5f6d,#ffc371,#4ecdc4,#556fff,#ff5f6d)'
+                : (p.base || `linear-gradient(135deg,${SERVER_PRIMARY},${SERVER_ACCENT})`);
             div.innerHTML = `<div class="swatch-circle" style="background:${bg};"></div><span>${escapeHTML(p.name)}</span>`;
-            div.onclick = () => applyTheme(p.base);
+            div.onclick = () => p.base === 'adaptive' ? enableAdaptiveTheme() : applyTheme(p.base);
             grid.appendChild(div);
         });
     }
