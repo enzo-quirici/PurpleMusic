@@ -165,6 +165,9 @@ if (!$isInstalled) {
                 $_SESSION['user_id']  = (int)$adminId;
                 $_SESSION['username'] = $admin_user;
                 $_SESSION['is_admin'] = 1;
+                // Nécessaire pour les appels authentifiés à api.php juste après
+                // l'installation (voir la connexion normale plus bas dans le fichier).
+                $_SESSION['api_pw']   = $admin_pass;
                 header("Location: " . $_SERVER['PHP_SELF']); exit;
 
             } catch (Exception $e) {
@@ -273,7 +276,59 @@ function checkRateLimit(string $action, int $limitSeconds): bool {
     return true;
 }
 
-// ── PDO MySQL ────────────────────────────────────────────────
+// Sert les variantes "r,g,b" des couleurs de thème pour permettre des
+// rgba(var(--x-rgb), alpha) dans le CSS — nécessaire pour que les halos/
+// surbrillances tintés continuent de suivre la couleur choisie (site ou
+// thème client) au lieu de rester figés sur le violet d'origine.
+function hexToRgbTriplet(string $hex): string {
+    $hex = ltrim($hex, '#');
+    if (strlen($hex) === 3) $hex = $hex[0].$hex[0].$hex[1].$hex[1].$hex[2].$hex[2];
+    if (strlen($hex) !== 6 || !ctype_xdigit($hex)) return '142,68,173';
+    $int = hexdec($hex);
+    return sprintf('%d,%d,%d', ($int >> 16) & 255, ($int >> 8) & 255, $int & 255);
+}
+
+// ===========================================================
+//  CLIENT api.php — index.php ne parle plus jamais directement
+//  aux tables `users`/`tracks`/`playlists` : toute la logique
+//  métier (auth, upload, lecture, playlists…) passe par api.php,
+//  exactement comme le fait le client Android Amethyst Music.
+//  Seuls les réglages du site (thème serveur, genres) restent
+//  gérés ici : api.php n'a pas de notion de ces tables.
+// ===========================================================
+function api_request(string $action, array $params = []): array {
+    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $url = $scheme . '://' . $_SERVER['HTTP_HOST'] . rtrim(dirname($_SERVER['SCRIPT_NAME']), '/') . '/api.php?action=' . urlencode($action);
+    $body = http_build_query($params);
+    $fallback = ['status' => 'error', 'message' => 'api.php injoignable'];
+
+    if (function_exists('curl_init')) {
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => $body,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 15,
+        ]);
+        $response = curl_exec($ch);
+        curl_close($ch);
+    } else {
+        $context = stream_context_create(['http' => [
+            'method'  => 'POST',
+            'header'  => "Content-Type: application/x-www-form-urlencoded\r\n",
+            'content' => $body,
+            'timeout' => 15,
+            'ignore_errors' => true,
+        ]]);
+        $response = @file_get_contents($url, false, $context);
+    }
+
+    if ($response === false) return $fallback;
+    $decoded = json_decode($response, true);
+    return is_array($decoded) ? $decoded : $fallback;
+}
+
+// ── PDO MySQL (réglages du site : thème & genres uniquement) ──
 try {
     $dsn = sprintf(
         'mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4',
@@ -315,217 +370,50 @@ try {
     die("Erreur BDD : " . $e->getMessage());
 }
 
-$user_id  = $_SESSION['user_id']  ?? null;
-$username = $_SESSION['username'] ?? null;
-
-$is_admin = false;
-if ($user_id) {
-    $stmtAdmin = $db->prepare("SELECT `is_admin` FROM `users` WHERE `id` = ?");
-    $stmtAdmin->execute([$user_id]);
-    $is_admin = ((int)$stmtAdmin->fetchColumn() === 1);
-}
-
 // ===========================================================
-//  AJAX : increment play
-// ===========================================================
-if (isset($_GET['increment_play'])) {
-    $id = (int)$_GET['increment_play'];
-    $db->prepare("UPDATE `tracks` SET `play_count` = `play_count` + 1 WHERE `id` = ?")->execute([$id]);
-    exit;
-}
-
-// ===========================================================
-//  AJAX : récupérer pistes d'une playlist
-// ===========================================================
-if (isset($_GET['get_playlist_tracks'])) {
-    $ids = array_filter(array_map('intval', explode(',', $_GET['get_playlist_tracks'])));
-    if (!empty($ids)) {
-        $placeholders = implode(',', array_fill(0, count($ids), '?'));
-        $stmt = $db->prepare(
-            "SELECT `id`,`filename`,`title`,`artist`,`cover`,`genre`,`play_count`,`duration`
-             FROM `tracks` WHERE `id` IN ($placeholders)"
-        );
-        $stmt->execute($ids);
-        echo json_encode($stmt->fetchAll(), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
-    } else {
-        echo json_encode([]);
-    }
-    exit;
-}
-
-// ===========================================================
-//  FONCTIONS UTILITAIRES (inchangées — indépendantes du SGBD)
-// ===========================================================
-function calculateAudioDuration(string $path): int {
-    if (!file_exists($path)) return 0;
-    $fp = fopen($path, 'rb'); if (!$fp) return 0;
-    $signature = fread($fp, 4);
-    if ($signature === 'fLaC') {
-        fseek($fp, 8); $streamInfo = fread($fp, 34); fclose($fp);
-        if (strlen($streamInfo) === 34) {
-            $fields = unpack('N3', substr($streamInfo, 10, 12));
-            $sampleRate   = ($fields[1] >> 12) & 0xFFFFF;
-            $totalSamples = (($fields[1] & 0x00F) << 32) | $fields[2];
-            if ($sampleRate > 0) return (int)round($totalSamples / $sampleRate);
-        }
-        return 0;
-    }
-    if (strpos($signature, 'ftyp') !== false || substr($signature, 1, 3) === 'ftyp') {
-        fseek($fp, 0); $content = fread($fp, 1024 * 400); $mvhdPos = strpos($content, 'mvhd'); fclose($fp);
-        if ($mvhdPos !== false) {
-            $version         = ord($content[$mvhdPos + 4]);
-            $timeScaleOffset = ($version === 1) ? 20 : 12;
-            $durationOffset  = ($version === 1) ? 24 : 16;
-            $timeScale       = unpack('N', substr($content, $mvhdPos + 4 + $timeScaleOffset, 4))[1];
-            $durationUnits   = unpack('N', substr($content, $mvhdPos + 4 + $durationOffset, 4))[1];
-            if ($timeScale > 0) return (int)round($durationUnits / $timeScale);
-        }
-        return 0;
-    }
-    fseek($fp, 0); $header = fread($fp, 10);
-    if (substr($header, 0, 3) === 'ID3') {
-        $b = unpack('C*', substr($header, 6, 4));
-        $tagSize = ($b[1] << 21) | ($b[2] << 14) | ($b[3] << 7) | $b[4];
-        fseek($fp, $tagSize + 10);
-    } else { fseek($fp, 0); }
-    $data = fread($fp, 1024 * 200); $offset = 0;
-    while ($offset < strlen($data) - 4) {
-        if (ord($data[$offset]) === 0xFF && (ord($data[$offset + 1]) & 0xE0) === 0xE0) {
-            $byte1      = ord($data[$offset + 1]);
-            $byte2      = ord($data[$offset + 2]);
-            $mpegVersion = ($byte1 >> 3) & 0x03;
-            $channelMode = ($byte2 >> 6) & 0x03;
-            $xingOffset  = ($mpegVersion === 3) ? (($channelMode === 3) ? 17 : 32) : (($channelMode === 3) ? 9 : 17);
-            $vbrCheck    = substr($data, $offset + 4 + $xingOffset, 4);
-            if ($vbrCheck === 'Xing' || $vbrCheck === 'Info') {
-                $flags = unpack('N', substr($data, $offset + 4 + $xingOffset + 4, 4))[1];
-                if ($flags & 0x01) {
-                    $frameCount = unpack('N', substr($data, $offset + 4 + $xingOffset + 8, 4))[1];
-                    $srTable    = [3 => [44100, 48000, 32000, 0], 2 => [22050, 24000, 16000, 0]];
-                    $sampleRate = $srTable[$mpegVersion][($byte2 >> 2) & 0x03] ?? 44100;
-                    $samplesPerFrame = ($mpegVersion === 3) ? 1152 : 576;
-                    fclose($fp);
-                    if ($sampleRate > 0) return (int)round(($frameCount * $samplesPerFrame) / $sampleRate);
-                }
-            }
-            $brTable = [0,32,40,48,56,64,80,96,112,128,160,192,224,256,320,0];
-            $bitrate = $brTable[($byte2 >> 4) & 0x0F] ?? 128;
-            fclose($fp);
-            if ($bitrate > 0) return (int)round((filesize($path) * 8) / ($bitrate * 1000));
-            break;
-        }
-        $offset++;
-    }
-    fclose($fp);
-    return (int)round((filesize($path) * 8) / (128 * 1000));
-}
-
-function extractMp3Data(string $path): array {
-    if (!file_exists($path)) return [];
-    $f = fopen($path, 'rb'); if (!$f) return [];
-    $header = fread($f, 10);
-    if (substr($header, 0, 3) !== 'ID3') { fclose($f); return []; }
-    $b = unpack('C*', substr($header, 6, 4));
-    $tagSize = ($b[1] << 21) | ($b[2] << 14) | ($b[3] << 7) | $b[4];
-    $tagData = fread($f, $tagSize); fclose($f);
-    $result  = ['cover' => null, 'artist' => null, 'title' => null];
-    $pos     = 0;
-    while ($pos < $tagSize) {
-        if ($pos + 10 > strlen($tagData)) break;
-        $frameName = substr($tagData, $pos, 4);
-        $s         = unpack('N', substr($tagData, $pos + 4, 4));
-        $frameSize = $s[1];
-        if ($frameSize == 0 || $frameName == "\x00\x00\x00\x00") break;
-        if ($pos + 10 + $frameSize > strlen($tagData)) break;
-        if ($frameName === 'APIC') {
-            $frameBody = substr($tagData, $pos + 10, $frameSize);
-            $nullPos   = strpos($frameBody, "\x00", 1);
-            if ($nullPos !== false) {
-                $mime    = substr($frameBody, 1, $nullPos - 1);
-                $imgStart = 0;
-                $jpgPos  = strpos($frameBody, "\xFF\xD8", $nullPos + 1);
-                $pngPos  = strpos($frameBody, "\x89PNG", $nullPos + 1);
-                if ($mime === 'image/jpeg' || $mime === 'image/jpg') { if ($jpgPos !== false) $imgStart = $jpgPos; }
-                elseif ($mime === 'image/png') { if ($pngPos !== false) $imgStart = $pngPos; }
-                else {
-                    if ($jpgPos !== false && ($pngPos === false || $jpgPos < $pngPos)) { $imgStart = $jpgPos; $mime = 'image/jpeg'; }
-                    elseif ($pngPos !== false) { $imgStart = $pngPos; $mime = 'image/png'; }
-                }
-                if ($imgStart > 0)
-                    $result['cover'] = ['mime' => $mime, 'data' => substr($frameBody, $imgStart)];
-            }
-        }
-        foreach (['TPE1' => 'artist', 'TIT2' => 'title'] as $tag => $field) {
-            if ($frameName === $tag) {
-                $rawText   = substr($tagData, $pos + 11, $frameSize - 1);
-                $cleanText = trim((string)preg_replace('/[\x00-\x1F\x7F]/u', '', $rawText));
-                if (!empty($cleanText)) $result[$field] = $cleanText;
-            }
-        }
-        $pos += 10 + $frameSize;
-    }
-    return $result;
-}
-
-function optimizeImage(string $sourcePath, string $destinationPath, ?string $mime = null): bool {
-    if (!extension_loaded('gd')) return (bool)move_uploaded_file($sourcePath, $destinationPath);
-    $info = getimagesize($sourcePath); if (!$info) return false;
-    $mime ??= $info['mime'];
-    $image = match($mime) {
-        'image/jpeg' => imagecreatefromjpeg($sourcePath),
-        'image/png'  => imagecreatefrompng($sourcePath),
-        'image/webp' => imagecreatefromwebp($sourcePath),
-        'image/gif'  => imagecreatefromgif($sourcePath),
-        default      => false,
-    };
-    if (!$image) return false;
-    $width = imagesx($image); $height = imagesy($image); $max_size = 300;
-    if ($width > $max_size || $height > $max_size) {
-        $ratio     = min($max_size / $width, $max_size / $height);
-        $nw        = (int)round($width * $ratio);
-        $nh        = (int)round($height * $ratio);
-        $resized   = imagecreatetruecolor($nw, $nh);
-        if ($mime === 'image/png') { imagealphablending($resized, false); imagesavealpha($resized, true); }
-        imagecopyresampled($resized, $image, 0, 0, 0, 0, $nw, $nh, $width, $height);
-        imagedestroy($image); $image = $resized;
-    }
-    $ok = imagewebp($image, $destinationPath, 80); imagedestroy($image);
-    if (!$ok && file_exists($sourcePath)) copy($sourcePath, $destinationPath);
-    return true;
-}
-
-// ===========================================================
-//  AUTHENTIFICATION
+//  AUTHENTIFICATION — déléguée à api.php (action=login/register)
 // ===========================================================
 if (isset($_POST['register'])) {
     if (!checkRateLimit('register', 30)) {
         $error = "Veuillez patienter avant de vous réinscrire.";
     } else {
-        $hash = password_hash($_POST['password'], PASSWORD_DEFAULT);
-        try {
-            $db->prepare("INSERT INTO `users` (`username`, `password`) VALUES (?, ?)")
-               ->execute([trim($_POST['username']), $hash]);
-        } catch (Exception $e) {
-            $error = "Nom d'utilisateur déjà pris.";
+        $res = api_request('register', [
+            'username' => trim($_POST['username'] ?? ''),
+            'password' => $_POST['password'] ?? '',
+        ]);
+        if (($res['status'] ?? '') === 'success') {
+            $info = "Compte créé avec succès, tu peux te connecter.";
+        } else {
+            $error = $res['message'] ?? "Inscription impossible.";
         }
     }
 }
 
 if (isset($_POST['login'])) {
-    $stmt = $db->prepare("SELECT * FROM `users` WHERE `username` = ?");
-    $stmt->execute([trim($_POST['username'])]);
-    $u = $stmt->fetch();
-    if ($u && password_verify($_POST['password'], $u['password'])) {
-        $_SESSION['user_id']  = (int)$u['id'];
-        $_SESSION['username'] = $u['username'];
-        $_SESSION['is_admin'] = (int)$u['is_admin'];
+    $res = api_request('login', [
+        'username' => trim($_POST['username'] ?? ''),
+        'password' => $_POST['password'] ?? '',
+    ]);
+    if (($res['status'] ?? '') === 'success') {
+        $_SESSION['user_id']  = (int)$res['user_id'];
+        $_SESSION['username'] = $res['username'];
+        $_SESSION['is_admin'] = !empty($res['is_admin']) ? 1 : 0;
+        // api.php n'a pas de session : chaque appel authentifié doit renvoyer
+        // le mot de passe. On le garde côté serveur (jamais en localStorage)
+        // pour l'injecter dans la page et permettre au JS d'appeler api.php.
+        $_SESSION['api_pw'] = $_POST['password'] ?? '';
         header("Location: " . $_SERVER['PHP_SELF']); exit;
     } else {
-        $error = "Identifiants incorrects.";
+        $error = $res['message'] ?? "Identifiants incorrects.";
     }
 }
 
 if (isset($_GET['logout'])) { session_destroy(); header("Location: " . $_SERVER['PHP_SELF']); exit; }
+
+$user_id  = $_SESSION['user_id']  ?? null;
+$username = $_SESSION['username'] ?? null;
+$is_admin = !empty($_SESSION['is_admin']);
+$api_pw   = $_SESSION['api_pw'] ?? '';
 
 // ===========================================================
 //  CONTRÔLES (utilisateur connecté)
@@ -581,116 +469,20 @@ if ($user_id) {
         header("Location: " . $_SERVER['PHP_SELF']); exit;
     }
 
-    // ── Upload ───────────────────────────────────────────────
-    if (isset($_POST['upload'], $_FILES['music'])) {
-        if (!checkRateLimit('upload', 15)) die("Patientez 15 secondes avant un nouvel upload.");
-        $audioExt = strtolower(pathinfo($_FILES['music']['name'], PATHINFO_EXTENSION));
-        if (!in_array($audioExt, ['mp3','wav','ogg','flac'])) die("Format audio non autorisé.");
-
-        $filename = bin2hex(random_bytes(8)) . '.' . $audioExt;
-        $meta     = extractMp3Data($_FILES['music']['tmp_name']);
-
-        $title  = !empty($_POST['title'])  ? $_POST['title']  : ($meta['title']  ?? pathinfo($_FILES['music']['name'], PATHINFO_FILENAME));
-        $artist = !empty($_POST['artist']) ? $_POST['artist'] : ($meta['artist'] ?? 'Artiste inconnu');
-        $genre  = $_POST['genre'] ?? 'Autre';
-        $coverName = 'default.png';
-
-        if (!empty($_FILES['cover']['name'])) {
-            $imgExt = strtolower(pathinfo($_FILES['cover']['name'], PATHINFO_EXTENSION));
-            if (in_array($imgExt, ['png','jpg','jpeg','webp','gif'])) {
-                $coverName = bin2hex(random_bytes(8)) . '.webp';
-                optimizeImage($_FILES['cover']['tmp_name'], __DIR__ . '/covers/' . $coverName);
-            }
-        } elseif (!empty($meta['cover'])) {
-            $coverName  = bin2hex(random_bytes(8)) . '_meta.webp';
-            $tmpImgPath = sys_get_temp_dir() . '/' . uniqid() . '.tmp';
-            file_put_contents($tmpImgPath, $meta['cover']['data']);
-            optimizeImage($tmpImgPath, __DIR__ . '/covers/' . $coverName, $meta['cover']['mime']);
-            @unlink($tmpImgPath);
-        }
-
-        $duration = calculateAudioDuration($_FILES['music']['tmp_name']);
-        if (move_uploaded_file($_FILES['music']['tmp_name'], __DIR__ . '/music/' . $filename)) {
-            $db->prepare(
-                "INSERT INTO `tracks` (`filename`,`title`,`artist`,`cover`,`genre`,`uploader_id`,`duration`)
-                 VALUES (?,?,?,?,?,?,?)"
-            )->execute([$filename, $title, $artist, $coverName, $genre, $user_id, $duration]);
-        }
-    }
-
-    // ── Édition piste ────────────────────────────────────────
-    if (isset($_POST['edit_track'])) {
-        $t_id = (int)$_POST['track_id'];
-        $genre = $_POST['new_genre'] ?? 'Autre';
-        $stmt  = $db->prepare("SELECT `cover` FROM `tracks` WHERE `id` = ? AND (`uploader_id` = ? OR ?)");
-        $stmt->execute([$t_id, $user_id, $is_admin ? 1 : 0]);
-        $curr = $stmt->fetch();
-        if ($curr) {
-            $coverName = $curr['cover'];
-            if (!empty($_FILES['new_cover']['name'])) {
-                $imgExt = strtolower(pathinfo($_FILES['new_cover']['name'], PATHINFO_EXTENSION));
-                if (in_array($imgExt, ['png','jpg','jpeg','webp','gif'])) {
-                    $coverName = bin2hex(random_bytes(8)) . '.webp';
-                    optimizeImage($_FILES['new_cover']['tmp_name'], __DIR__ . '/covers/' . $coverName);
-                }
-            }
-            $db->prepare("UPDATE `tracks` SET `title`=?,`artist`=?,`cover`=?,`genre`=? WHERE `id`=?")
-               ->execute([$_POST['new_title'], $_POST['new_artist'], $coverName, $genre, $t_id]);
-        }
-    }
-
-    // ── Suppression piste ────────────────────────────────────
-    if (isset($_GET['delete_track'])) {
-        if (!isset($_GET['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $_GET['csrf_token'])) die("CSRF invalide.");
-        $stmt = $db->prepare("SELECT `filename`,`cover` FROM `tracks` WHERE `id` = ? AND (`uploader_id` = ? OR ?)");
-        $stmt->execute([$_GET['delete_track'], $user_id, $is_admin ? 1 : 0]);
-        $t = $stmt->fetch();
-        if ($t) {
-            @unlink(__DIR__ . '/music/'  . $t['filename']);
-            if ($t['cover'] !== 'default.png') @unlink(__DIR__ . '/covers/' . $t['cover']);
-            $db->prepare("DELETE FROM `tracks` WHERE `id` = ?")->execute([$_GET['delete_track']]);
-        }
-        header("Location: " . strtok($_SERVER['REQUEST_URI'], '?')); exit;
-    }
-
-    // ── Suppression playlist ─────────────────────────────────
-    if (isset($_GET['delete_playlist'])) {
-        if (!isset($_GET['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $_GET['csrf_token'])) die("CSRF invalide.");
-        $db->prepare("DELETE FROM `playlists` WHERE `id` = ? AND (`creator_id` = ? OR ?)")
-           ->execute([$_GET['delete_playlist'], $user_id, $is_admin ? 1 : 0]);
-        header("Location: " . strtok($_SERVER['REQUEST_URI'], '?')); exit;
-    }
-
-    // ── Sauvegarde playlist ──────────────────────────────────
-    if (isset($_POST['save_playlist'])) {
-        $song_ids = isset($_POST['selected_songs']) ? implode(',', array_map('intval', $_POST['selected_songs'])) : '';
-        if (!empty($_POST['playlist_id'])) {
-            $db->prepare(
-                "UPDATE `playlists` SET `name`=?,`song_ids`=? WHERE `id`=? AND (`creator_id`=? OR ?)"
-            )->execute([$_POST['playlist_name'], $song_ids, (int)$_POST['playlist_id'], $user_id, $is_admin ? 1 : 0]);
-        } else {
-            $db->prepare("INSERT INTO `playlists` (`name`,`creator_id`,`song_ids`) VALUES (?,?,?)")
-               ->execute([$_POST['playlist_name'], $user_id, $song_ids]);
-        }
-        header("Location: " . $_SERVER['PHP_SELF']); exit;
-    }
+    // Upload, édition/suppression de pistes, et gestion des playlists sont
+    // désormais entièrement gérés côté client via des appels fetch() à
+    // api.php (voir le <script> plus bas) — index.php ne duplique plus
+    // cette logique (extraction ID3, calcul de durée, compression d'image…
+    // tout ça vit déjà dans api.php).
 }
 
 // ===========================================================
-//  DONNÉES POUR LE RENDU
+//  DONNÉES POUR LE RENDU — lues depuis api.php
 // ===========================================================
-$all_tracks = $db->query(
-    "SELECT t.*, u.`username` AS uploader_name
-     FROM `tracks` t
-     JOIN `users` u ON t.`uploader_id` = u.`id`
-     ORDER BY t.`play_count` DESC, t.`id` DESC"
-)->fetchAll();
-
-$all_playlists = $db->query(
-    "SELECT p.*, u.`username`
-     FROM `playlists` p
-     JOIN `users` u ON p.`creator_id` = u.`id`"
-)->fetchAll();
+$all_tracks    = $user_id ? api_request('list')      : [];
+$all_playlists = $user_id ? api_request('playlists') : [];
+if (!is_array($all_tracks) || (isset($all_tracks['status'])))       $all_tracks = [];
+if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlists = [];
 
 ?>
 <!DOCTYPE html>
@@ -706,12 +498,23 @@ $all_playlists = $db->query(
             --bg-panel:   <?php echo $color_panel; ?>;
             --primary:    <?php echo $color_primary; ?>;
             --accent:     <?php echo $color_accent; ?>;
+            --primary-rgb: <?php echo hexToRgbTriplet($color_primary); ?>;
+            --accent-rgb:  <?php echo hexToRgbTriplet($color_accent); ?>;
             --text:       <?php echo $color_text; ?>;
             --text-muted: <?php echo $color_text_muted; ?>;
             --border-color:  <?php echo $color_border; ?>;
             --search-bg:     <?php echo $color_search_bg; ?>;
             --header-bg:     <?php echo $color_header_bg; ?>;
             --mob-nav-bg:    <?php echo $color_mob_nav_bg; ?>;
+            --player-bg:     <?php echo $color_player_bg; ?>;
+            --fp-gradient-1: <?php echo $color_fp_gradient_1; ?>;
+            --fp-gradient-2: <?php echo $color_fp_gradient_2; ?>;
+            /* Surfaces/texte non exposés au panneau admin, mais suivant
+               quand même le thème choisi par l'utilisateur (voir applyTheme). */
+            --modal-bg:    #1e162e;
+            --input-bg:    #140f1f;
+            --elevated-bg: #2d2444;
+            --player-text: #ffffff;
             --danger: #ff4757;
             --radius-sm: 8px; --radius-md: 16px; --radius-lg: 24px; --radius-full: 9999px;
         }
@@ -723,17 +526,17 @@ $all_playlists = $db->query(
         .logo { font-weight:800; font-size:1.6em; color:var(--accent); white-space:nowrap; letter-spacing:-1px; }
         nav { display:flex; gap:25px; margin-left:40px; flex-grow:1; }
         nav span { cursor:pointer; font-weight:600; color:var(--text-muted); transition:.3s; white-space:nowrap; padding:5px 10px; border-radius:var(--radius-sm); }
-        nav span:hover { color:white; background:rgba(255,255,255,.05); }
+        nav span:hover { color:var(--text); background:rgba(255,255,255,.05); }
         nav span.active { color:var(--accent); }
         nav span.admin-nav-btn { color:#e67e22; font-weight:700; }
         .header-actions { display:flex; gap:12px; align-items:center; }
 
         .btn { padding:10px 20px; border-radius:var(--radius-full); border:none; cursor:pointer; font-weight:700; transition:all .2s ease; text-decoration:none; display:inline-flex; align-items:center; font-size:.9em; white-space:nowrap; justify-content:center; }
         .btn:active { transform:scale(.96); }
-        .btn-primary { background:var(--primary); color:white; box-shadow:0 4px 15px rgba(142,68,173,.3); }
+        .btn-primary { background:var(--primary); color:white; box-shadow:0 4px 15px rgba(var(--primary-rgb),.3); }
         .btn-primary:hover { background:#9b59b6; }
         .btn-outline { background:transparent; border:1px solid var(--primary); color:var(--accent); }
-        .btn-outline:hover { background:rgba(142,68,173,.1); }
+        .btn-outline:hover { background:rgba(var(--primary-rgb),.1); }
         .btn-danger { background:rgba(255,71,87,.1); color:var(--danger); font-size:.75em; border:1px solid rgba(255,71,87,.3); padding:6px 12px; }
 
         main { padding:30px; max-width:1100px; margin:auto; }
@@ -741,13 +544,13 @@ $all_playlists = $db->query(
         .section-title { border-left:5px solid var(--primary); padding-left:15px; margin-bottom:20px; font-size:1.5em; border-radius:2px; }
         .search-row { display:flex; align-items:center; gap:15px; width:100%; }
         .search-container { flex-grow:1; position:relative; }
-        .search-input { width:100%; height:50px; padding:0 25px; border-radius:50px; border:1px solid rgba(61,43,86,.5); background:var(--search-bg); color:white; font-size:1em; outline:none; transition:all .3s; box-shadow:0 4px 10px rgba(0,0,0,.2); }
-        .search-input:focus { border-color:var(--accent); background:#2d2444; box-shadow:0 0 0 3px rgba(187,134,252,.2); }
-        .search-input::placeholder { color:#6b5e85; }
+        .search-input { width:100%; height:50px; padding:0 25px; border-radius:50px; border:1px solid rgba(61,43,86,.5); background:var(--search-bg); color:var(--text); font-size:1em; outline:none; transition:all .3s; box-shadow:0 4px 10px rgba(0,0,0,.2); }
+        .search-input:focus { border-color:var(--accent); background:var(--elevated-bg); box-shadow:0 0 0 3px rgba(var(--accent-rgb),.2); }
+        .search-input::placeholder { color:var(--text-muted); }
         .filter-wrapper { position:relative; width:50px; height:50px; flex-shrink:0; }
         .filter-icon-visual { width:100%; height:100%; background:var(--search-bg); border:1px solid rgba(61,43,86,.5); border-radius:50%; display:flex; align-items:center; justify-content:center; color:var(--accent); box-shadow:0 4px 10px rgba(0,0,0,.2); transition:.3s; }
         .filter-select-overlay { position:absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer; appearance:none; -webkit-appearance:none; z-index:10; }
-        .filter-wrapper:hover .filter-icon-visual { border-color:var(--accent); background:#32264d; transform:translateY(-2px); }
+        .filter-wrapper:hover .filter-icon-visual { border-color:var(--accent); background:var(--elevated-bg); transform:translateY(-2px); }
 
         .track-list { background:var(--bg-panel); border-radius:24px; overflow:hidden; border:1px solid #2d2444; min-height:200px; box-shadow:0 10px 30px rgba(0,0,0,.2); }
         .track-item { display:grid; grid-template-columns:40px 50px 1fr auto; align-items:center; padding:15px 25px; border-bottom:1px solid rgba(255,255,255,.03); gap:20px; transition:background .2s; }
@@ -755,32 +558,34 @@ $all_playlists = $db->query(
         .track-item:hover { background:rgba(255,255,255,.07); }
         .mini-cover { width:50px; height:50px; border-radius:12px; object-fit:cover; box-shadow:0 4px 8px rgba(0,0,0,.3); }
         .track-index { color:var(--primary); font-weight:700; opacity:.7; }
-        #load-more-trigger { height:40px; text-align:center; color:#6b5e85; padding-top:15px; font-size:.9em; }
+        #load-more-trigger { height:40px; text-align:center; color:var(--text-muted); padding-top:15px; font-size:.9em; }
 
         .playlist-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:25px; }
         .playlist-card { background:var(--bg-panel); border-radius:24px; padding:25px; border:1px solid rgba(61,43,86,.5); transition:transform .3s,box-shadow .3s; }
         .playlist-card:hover { transform:translateY(-5px); box-shadow:0 15px 30px rgba(0,0,0,.4); border-color:var(--primary); }
 
-        #queue-panel { position:fixed; right:-360px; top:70px; width:340px; height:calc(100vh - 70px); background:rgba(27,20,41,.95); backdrop-filter:blur(20px); border-left:1px solid rgba(255,255,255,.1); z-index:999; transition:.4s cubic-bezier(.4,0,.2,1); padding:25px; padding-bottom:120px; box-shadow:-10px 0 40px rgba(0,0,0,.5); overflow-y:auto; }
+        #queue-panel { position:fixed; right:-360px; top:70px; width:340px; height:calc(100vh - 70px); background:var(--mob-nav-bg); backdrop-filter:blur(20px); border-left:1px solid rgba(255,255,255,.1); z-index:999; transition:.4s cubic-bezier(.4,0,.2,1); padding:25px; padding-bottom:120px; box-shadow:-10px 0 40px rgba(0,0,0,.5); overflow-y:auto; }
         #queue-panel.open { right:0; }
         .queue-item { display:flex; align-items:center; gap:12px; padding:10px; border-radius:12px; margin-bottom:8px; cursor:pointer; border:1px solid transparent; transition:.2s; }
-        .queue-item.active { background:rgba(142,68,173,.15); border-color:var(--primary); }
+        .queue-item.active { background:rgba(var(--primary-rgb),.15); border-color:var(--primary); }
         .queue-item:hover { background:rgba(255,255,255,.05); }
-        .close-queue-mobile { display:none; width:100%; margin-bottom:20px; background:#2d2444; border:none; color:white; padding:12px; border-radius:var(--radius-sm); font-weight:bold; }
+        .close-queue-mobile { display:none; width:100%; margin-bottom:20px; background:var(--elevated-bg); border:none; color:var(--player-text); padding:12px; border-radius:var(--radius-sm); font-weight:bold; }
 
-        #player-bar { position:fixed; bottom:25px; left:50%; transform:translateX(-50%); width:94%; max-width:1000px; background:<?php echo $color_player_bg; ?>; backdrop-filter:blur(20px) saturate(180%); padding:15px 30px; border-radius:20px; display:flex; align-items:center; z-index:1000; border:1px solid rgba(255,255,255,.1); box-shadow:0 15px 50px rgba(0,0,0,.6); }
+        #player-bar { position:fixed; bottom:25px; left:50%; transform:translateX(-50%); width:94%; max-width:1000px; background:var(--player-bg); backdrop-filter:blur(20px) saturate(180%); padding:15px 30px; border-radius:20px; display:flex; align-items:center; z-index:1000; border:1px solid rgba(255,255,255,.1); box-shadow:0 15px 50px rgba(0,0,0,.6); }
         .player-info { display:flex; align-items:center; gap:15px; width:25%; min-width:180px; }
         #player-cover { width:56px; height:56px; border-radius:12px; object-fit:cover; box-shadow:0 5px 15px rgba(0,0,0,.3); }
         .progress-container { flex-grow:1; margin:0 20px; }
         .progress-bg { background:rgba(255,255,255,.1); height:6px; border-radius:10px; cursor:pointer; position:relative; overflow:hidden; }
         .progress-fill { background:linear-gradient(90deg,var(--primary),var(--accent)); height:100%; width:0%; border-radius:10px; }
         .controls { display:flex; align-items:center; gap:12px; }
-        .control-btn { background:none; border:none; color:white; cursor:pointer; opacity:.8; transition:.2s; padding:8px; border-radius:50%; display:flex; align-items:center; justify-content:center; }
-        .control-btn svg { width:24px; height:24px; fill:white; display:block; }
+        .control-btn { background:none; border:none; color:var(--player-text); cursor:pointer; opacity:.8; transition:.2s; padding:8px; border-radius:50%; display:flex; align-items:center; justify-content:center; }
+        .control-btn svg { width:24px; height:24px; fill:var(--player-text); display:block; }
         .control-btn:hover { background:rgba(255,255,255,.1); opacity:1; }
         .control-btn.active { color:var(--accent); opacity:1; position:relative; }
         .control-btn.active svg { fill:var(--accent); }
         .control-btn.active::after { content:''; position:absolute; bottom:0; left:50%; transform:translateX(-50%); width:4px; height:4px; background:var(--accent); border-radius:50%; }
+        .loop-badge { display:none; position:absolute; top:-2px; right:-2px; width:14px; height:14px; border-radius:50%; background:var(--accent); color:var(--bg-dark); font-size:9px; font-weight:800; line-height:1; align-items:center; justify-content:center; font-family:system-ui,sans-serif; box-shadow:0 0 0 2px var(--bg-panel); }
+        .loop-badge.show { display:flex; }
         #masterPlay { background:white; border:none; width:50px; height:50px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:transform .2s,box-shadow .2s; box-shadow:0 0 20px rgba(255,255,255,.3); flex-shrink:0; }
         #masterPlay:hover { transform:scale(1.1); box-shadow:0 0 30px rgba(255,255,255,.5); }
         #masterPlay svg { fill:#0f0c1d; width:22px; height:22px; }
@@ -790,33 +595,52 @@ $all_playlists = $db->query(
         input[type=range].vol-slider::-webkit-slider-thumb { -webkit-appearance:none; width:12px; height:12px; background:#fff; border-radius:50%; cursor:pointer; transition:.2s; }
 
         .modal { display:none; position:fixed; z-index:2000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,.6); backdrop-filter:blur(8px); }
-        .modal-content { background:#1e162e; margin:5% auto; padding:30px; width:90%; max-width:550px; border-radius:28px; border:1px solid rgba(255,255,255,.1); box-shadow:0 25px 80px rgba(0,0,0,.5); max-height:85vh; overflow-y:auto; animation:modalPop .3s cubic-bezier(.175,.885,.32,1.275); }
+        .modal-content { background:var(--modal-bg); margin:5% auto; padding:30px; width:90%; max-width:550px; border-radius:28px; border:1px solid rgba(255,255,255,.1); box-shadow:0 25px 80px rgba(0,0,0,.5); max-height:85vh; overflow-y:auto; animation:modalPop .3s cubic-bezier(.175,.885,.32,1.275); }
         @keyframes modalPop { from{transform:scale(.9);opacity:0} to{transform:scale(1);opacity:1} }
 
-        input[type=text],input[type=password],input[type=file],select { width:100%; padding:14px; margin:10px 0 20px 0; background:#140f1f; border:1px solid var(--border-color); color:#fff; border-radius:12px; outline:none; transition:.3s; }
-        input[type=text]:focus,input[type=password]:focus,select:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(142,68,173,.2); }
+        input[type=text],input[type=password],input[type=file],select { width:100%; padding:14px; margin:10px 0 20px 0; background:var(--input-bg); border:1px solid var(--border-color); color:var(--text); border-radius:12px; outline:none; transition:.3s; }
+        input[type=text]:focus,input[type=password]:focus,select:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(var(--primary-rgb),.2); }
 
         .adm-accordion-item { border:1px solid var(--border-color); border-radius:14px; margin-bottom:12px; background:rgba(0,0,0,.15); overflow:hidden; }
         .adm-accordion-header { background:rgba(255,255,255,.02); padding:16px 20px; font-weight:bold; font-size:1.05em; color:var(--accent); cursor:pointer; display:flex; justify-content:space-between; align-items:center; user-select:none; transition:background .2s; }
         .adm-accordion-header:hover { background:rgba(255,255,255,.05); }
         .adm-accordion-header::after { content:'▼'; font-size:.8em; opacity:.7; transition:transform .3s ease; }
-        .adm-accordion-item.open .adm-accordion-header::after { transform:rotate(-180deg); color:white; }
+        .adm-accordion-item.open .adm-accordion-header::after { transform:rotate(-180deg); color:var(--text); }
         .adm-accordion-content { padding:20px; display:none; border-top:1px solid rgba(255,255,255,.05); }
 
         .extended-color-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-bottom:10px; }
-        .extended-color-item { background:#140f1f; padding:12px 15px; border-radius:12px; border:1px solid var(--border-color); display:flex; align-items:center; justify-content:space-between; gap:10px; }
+        .extended-color-item { background:var(--input-bg); padding:12px 15px; border-radius:12px; border:1px solid var(--border-color); display:flex; align-items:center; justify-content:space-between; gap:10px; }
         .extended-color-item span { font-size:.85em; color:var(--text-muted); font-weight:500; }
         .extended-color-item input[type=color] { border:none; width:45px !important; height:35px !important; background:transparent; cursor:pointer; padding:0; border-radius:6px; margin:0; flex-shrink:0; }
 
-        .song-select-container { max-height:300px; overflow-y:auto; margin-top:15px; border:1px solid var(--border-color); border-radius:16px; background:#140f1f; }
+        .song-select-container { max-height:300px; overflow-y:auto; margin-top:15px; border:1px solid var(--border-color); border-radius:16px; background:var(--input-bg); }
         .song-select-item { display:flex; align-items:center; padding:12px; border-bottom:1px solid rgba(255,255,255,.05); cursor:pointer; transition:.2s; }
         .song-select-item:hover { background:rgba(255,255,255,.05); }
-        .song-select-item.selected { background:rgba(142,68,173,.2); }
+        .song-select-item.selected { background:rgba(var(--primary-rgb),.2); }
 
-        #full-player { position:fixed; top:100%; left:0; width:100%; height:100%; background:radial-gradient(circle at top right,<?php echo $color_fp_gradient_1; ?>,<?php echo $color_fp_gradient_2; ?>); z-index:5000; transition:top .4s cubic-bezier(.2,.8,.2,1); display:flex; flex-direction:column; padding:30px; box-sizing:border-box; color:white; justify-content:space-between; }
+        .theme-swatch-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(72px,1fr)); gap:14px; margin:10px 0 20px; }
+        .theme-swatch { display:flex; flex-direction:column; align-items:center; gap:6px; cursor:pointer; }
+        .theme-swatch .swatch-circle { width:38px; height:38px; border-radius:50%; border:2px solid transparent; box-shadow:0 2px 10px rgba(0,0,0,.4); transition:.2s; }
+        .theme-swatch:hover .swatch-circle { transform:scale(1.08); }
+        .theme-swatch.active .swatch-circle { border-color:var(--accent); box-shadow:0 0 0 3px rgba(var(--accent-rgb),.3); }
+        .theme-swatch span { font-size:.65em; color:var(--text-muted); text-align:center; line-height:1.2; }
+
+        .eq-row { display:grid; grid-template-columns:70px 1fr 55px; align-items:center; gap:12px; margin-bottom:14px; }
+        .eq-label { font-size:.8em; color:var(--text-muted); font-weight:600; }
+        .eq-val { font-size:.75em; color:var(--accent); font-family:monospace; text-align:right; }
+        .eq-preset-row { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:22px; }
+
+        .lyric-line { color:rgba(255,255,255,.5); font-size:1.05em; font-weight:600; padding:9px 0; cursor:pointer; transition:.2s; }
+        .lyric-line:hover { color:rgba(255,255,255,.8); }
+        .lyric-line.active { color:var(--player-text); font-size:1.25em; }
+        .lyrics-status { color:rgba(255,255,255,.6); margin-top:20px; padding:0 10px; text-align:center; }
+        .fp-btn.active { background:rgba(var(--primary-rgb),.3); }
+
+        #full-player { position:fixed; top:100%; left:0; width:100%; height:100%; background:radial-gradient(circle at top right,var(--fp-gradient-1),var(--fp-gradient-2)); z-index:5000; transition:top .4s cubic-bezier(.2,.8,.2,1); display:flex; flex-direction:row; box-sizing:border-box; color:var(--player-text); overflow:hidden; }
         #full-player.active { top:0; }
+        .fp-main { flex:1; min-width:0; display:flex; flex-direction:column; justify-content:space-between; padding:30px; box-sizing:border-box; }
         .fp-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
-        .fp-btn { background:none; border:none; cursor:pointer; padding:10px; border-radius:50%; }
+        .fp-btn { background:none; border:none; cursor:pointer; padding:10px; border-radius:50%; flex-shrink:0; }
         .fp-art-container { flex-grow:1; display:flex; align-items:center; justify-content:center; margin:20px 0; max-height:45vh; }
         #fp-cover { width:100%; height:auto; aspect-ratio:1/1; object-fit:cover; border-radius:20px; box-shadow:0 20px 60px rgba(0,0,0,.5); max-width:350px; }
         .fp-info-area { text-align:left; margin-bottom:30px; padding:0 10px; overflow:hidden; }
@@ -825,6 +649,17 @@ $all_playlists = $db->query(
         .scrolling-active { padding-left:100%; animation:marquee 12s linear infinite; }
         @keyframes marquee { 0%{transform:translate(0,0)} 100%{transform:translate(-100%,0)} }
         .fp-controls { display:flex; justify-content:space-between; align-items:center; padding:0 10px 20px 10px; width:100%; box-sizing:border-box; }
+
+        /* Panneau latéral "File d'attente / Paroles" (façon YouTube Music) */
+        #fp-sidebar { width:0; flex-shrink:0; background:rgba(0,0,0,.25); backdrop-filter:blur(20px); border-left:1px solid rgba(255,255,255,.08); box-sizing:border-box; overflow:hidden; display:flex; flex-direction:column; transition:width .3s cubic-bezier(.2,.8,.2,1); }
+        #fp-sidebar.open { width:380px; }
+        .fp-sidebar-tabs { display:flex; flex-shrink:0; border-bottom:1px solid rgba(255,255,255,.08); }
+        .fp-tab-btn { flex:1; background:none; border:none; padding:20px 10px; color:var(--player-text); opacity:.55; cursor:pointer; font-weight:700; font-size:.8em; letter-spacing:.5px; white-space:nowrap; border-bottom:2px solid transparent; transition:.2s; }
+        .fp-tab-btn:hover { opacity:.85; }
+        .fp-tab-btn.active { opacity:1; border-bottom-color:var(--accent); color:var(--accent); }
+        .fp-sidebar-content { flex:1; overflow-y:auto; padding:15px 20px; min-width:380px; }
+        .fp-tab-pane { display:none; }
+        .fp-tab-pane.active { display:block; }
 
         #mobile-bottom-nav { display:none; position:fixed; bottom:0; left:0; width:100%; background:var(--mob-nav-bg); backdrop-filter:blur(15px); border-top:1px solid rgba(255,255,255,.05); z-index:3000; justify-content:space-around; padding:10px 0 15px 0; height:70px; box-sizing:border-box; }
         .mob-nav-item { display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--text-muted); font-size:.7em; background:none; border:none; gap:5px; font-weight:600; width:20%; }
@@ -840,7 +675,7 @@ $all_playlists = $db->query(
             header { display:flex; justify-content:center; align-items:center; height:60px; padding:10px 20px; position:relative; }
             nav,.header-actions { display:none; }
             .mobile-settings-btn { display:block; position:absolute; right:20px; background:none; border:none; padding:5px; cursor:pointer; }
-            .mobile-settings-btn svg { width:24px; height:24px; fill:#a196b4; }
+            .mobile-settings-btn svg { width:24px; height:24px; fill:var(--text-muted); }
             main { padding:20px; width:100%; box-sizing:border-box; }
             .track-item { grid-template-columns:50px 1fr auto; padding:12px 10px; gap:12px; }
             .track-index { display:none; }
@@ -856,6 +691,10 @@ $all_playlists = $db->query(
             .settings-grid { grid-template-columns:1fr; }
             #mobile-bottom-nav { display:flex; }
             .extended-color-grid { grid-template-columns:1fr; }
+            #full-player { flex-direction:column; }
+            #fp-sidebar { position:absolute; inset:0; width:0; height:100%; z-index:10; border-left:none; }
+            #fp-sidebar.open { width:100%; }
+            .fp-sidebar-content { min-width:0; }
         }
     </style>
 </head>
@@ -867,6 +706,7 @@ $all_playlists = $db->query(
     <form method="post">
         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
         <?php if (isset($error)) echo "<p style='color:var(--danger);'>" . htmlspecialchars($error) . "</p>"; ?>
+        <?php if (isset($info))  echo "<p style='color:#2ecc71;'>" . htmlspecialchars($info) . "</p>"; ?>
         <input type="text" name="username" placeholder="Utilisateur" required style="padding:15px;border-radius:12px;">
         <input type="password" name="password" placeholder="Mot de passe" required style="padding:15px;border-radius:12px;">
         <button type="submit" name="login" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:10px;padding:15px;">Connexion</button>
@@ -888,10 +728,13 @@ $all_playlists = $db->query(
         <button class="btn btn-outline" onclick="toggleQueue()">File</button>
         <button class="btn btn-primary" onclick="openCreateModal()">+ Mix</button>
         <button class="btn btn-outline" onclick="openModal('uploadModal')">Upload</button>
+        <button class="btn btn-outline" onclick="openModal('equalizerModal');renderEqSliders();" title="Égaliseur" style="padding:10px;border-radius:50%;">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M4 10h3v10H4V10zm6.5-6h3v16h-3V4zM17 14h3v6h-3v-6z"/></svg>
+        </button>
         <button class="btn btn-outline" onclick="openModal('settingsModal')" style="padding:10px;border-radius:50%;">
             <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M19.4 13c0-.3.1-.6.1-1s0-.7-.1-1l2.1-1.7c.2-.2.2-.4.1-.6l-2-3.5c-.1-.2-.3-.3-.6-.2l-2.5 1c-.5-.4-1.1-.7-1.7-1l-.4-2.7c0-.2-.2-.4-.5-.4h-4c-.3 0-.5.2-.5.4l-.4 2.7c-.6.2-1.2.6-1.7 1l-2.5-1c-.2-.1-.5 0-.6.2l-2 3.5c-.1.2-.1.5.1.6L4.6 11c-.1.3-.1.6-.1 1s0 .7.1 1l-2.1 1.7c-.2.2-.2.4-.1.6l2 3.5c.1.2.3.3.6.2l2.5-1c.5.4 1.1.7 1.7 1l.4 2.7c0 .2.2.4.5.4h4c.3 0 .5-.2.5-.4l.4-2.7c.6-.2 1.2-.6 1.7-1l2.5 1c.2.1.5 0 .6-.2l2-3.5c.1-.2.1-.5-.1-.6L19.4 13zM12 15.5c-1.9 0-3.5-1.6-3.5-3.5s1.6-3.5 3.5-3.5 3.5 1.6 3.5 3.5-1.6 3.5-3.5 3.5z"/></svg>
         </button>
-        <a href="?logout=1" class="btn" style="color:#a196b4;">Sortir</a>
+        <a href="?logout=1" class="btn" style="color:var(--text-muted);">Sortir</a>
     </div>
     <button class="mobile-settings-btn" onclick="openModal('settingsModal')">
         <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M19.4 13c0-.3.1-.6.1-1s0-.7-.1-1l2.1-1.7c.2-.2.2-.4.1-.6l-2-3.5c-.1-.2-.3-.3-.6-.2l-2.5 1c-.5-.4-1.1-.7-1.7-1l-.4-2.7c0-.2-.2-.4-.5-.4h-4c-.3 0-.5.2-.5.4l-.4 2.7c-.6.2-1.2.6-1.7 1l-2.5-1c-.2-.1-.5 0-.6.2l-2 3.5c-.1.2-.1.5.1.6L4.6 11c-.1.3-.1.6-.1 1s0 .7.1 1l-2.1 1.7c-.2.2-.2.4-.1.6l2 3.5c.1.2.3.3.6.2l2.5-1c.5.4 1.1.7 1.7 1l.4 2.7c0 .2.2.4.5.4h4c.3 0 .5-.2.5-.4l.4-2.7c.6-.2 1.2-.6 1.7-1l2.5 1c.2.1.5 0 .6-.2l2-3.5c.1-.2.1-.5-.1-.6L19.4 13zM12 15.5c-1.9 0-3.5-1.6-3.5-3.5s1.6-3.5 3.5-3.5 3.5 1.6 3.5 3.5-1.6 3.5-3.5 3.5z"/></svg>
@@ -974,7 +817,7 @@ $all_playlists = $db->query(
 <div id="queue-panel">
     <button class="close-queue-mobile" onclick="toggleQueue()">▼ Fermer la file</button>
     <h3 style="margin-top:0;color:var(--accent);font-size:1.2em;border-bottom:1px solid rgba(255,255,255,.1);padding-bottom:15px;">File d'attente</h3>
-    <div id="queue-list" style="margin-top:15px;"><p style="color:#666;font-size:.9em;">Aucune musique...</p></div>
+    <div id="queue-list" style="margin-top:15px;"><p style="color:var(--text-muted);font-size:.9em;">Aucune musique...</p></div>
 </div>
 
 <main id="accueil">
@@ -1009,12 +852,12 @@ $all_playlists = $db->query(
         <?php foreach ($all_playlists as $p): ?>
             <div class="playlist-card">
                 <h3 style="margin-top:0;font-size:1.3em;"><?php echo htmlspecialchars($p['name']); ?></h3>
-                <p style="font-size:.85em;color:var(--text-muted);margin-bottom:20px;">Créé par <strong><?php echo htmlspecialchars($p['username']); ?></strong></p>
+                <p style="font-size:.85em;color:var(--text-muted);margin-bottom:20px;">Créé par <strong><?php echo htmlspecialchars($p['creator']); ?></strong></p>
                 <button class="btn btn-primary" style="width:100%;justify-content:center;margin-bottom:15px;" onclick="playPlaylist('<?php echo htmlspecialchars($p['song_ids']); ?>','<?php echo $p['id']; ?>')">▶ Écouter</button>
                 <?php if ($p['creator_id'] == $user_id || $is_admin): ?>
                     <div style="display:flex;gap:10px;">
                         <button class="btn btn-outline" style="flex:1;justify-content:center;font-size:.8em;" onclick='openEditModal(<?php echo json_encode($p, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>)'>Éditer</button>
-                        <a href="?delete_playlist=<?php echo $p['id']; ?>&csrf_token=<?php echo $csrf_token; ?>" class="btn btn-danger" style="flex:1;justify-content:center;border-radius:99px;" onclick="return confirm('Supprimer ?')">Suppr</a>
+                        <button class="btn btn-danger" style="flex:1;justify-content:center;border-radius:99px;" onclick="deletePlaylist(<?php echo (int)$p['id']; ?>)">Suppr</button>
                     </div>
                 <?php endif; ?>
             </div>
@@ -1045,66 +888,93 @@ $all_playlists = $db->query(
 <!-- Modals -->
 <div id="settingsModal" class="modal"><div class="modal-content">
     <h2 style="margin-top:0;">Filtres & Paramètres</h2>
+
+    <p style="color:var(--text-muted);font-size:.9em;margin-bottom:10px;">Thème :</p>
+    <div class="theme-swatch-grid" id="theme-swatch-grid"></div>
+
     <p style="color:var(--text-muted);font-size:.9em;margin-bottom:20px;">Genres à <strong style="color:var(--danger);">masquer</strong> :</p>
     <div class="settings-grid">
         <?php foreach ($genresList as $g): ?>
             <label><input type="checkbox" class="genre-filter-cb" data-genre="<?php echo htmlspecialchars($g); ?>" onchange="toggleGenreSetting('<?php echo htmlspecialchars($g); ?>',this.checked)"> <?php echo htmlspecialchars($g); ?></label>
         <?php endforeach; ?>
     </div>
+
+    <button class="btn btn-outline" style="width:100%;justify-content:center;margin-bottom:12px;" onclick="closeModal('settingsModal');openModal('equalizerModal');renderEqSliders();">🎚 Ouvrir l'égaliseur</button>
     <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="closeModal('settingsModal')">Fermer</button>
+</div></div>
+
+<div id="equalizerModal" class="modal"><div class="modal-content">
+    <h2 style="margin-top:0;">Égaliseur</h2>
+    <label style="display:flex;align-items:center;gap:10px;margin-bottom:18px;cursor:pointer;">
+        <input type="checkbox" id="eqEnableToggle" style="width:auto;margin:0;" onchange="initAudioGraph();setEqEnabled(this.checked)"> Activer l'égaliseur
+    </label>
+    <div class="eq-preset-row">
+        <button type="button" class="btn btn-outline" onclick="applyEqPreset('flat')">Plat</button>
+        <button type="button" class="btn btn-outline" onclick="applyEqPreset('bass')">Basses</button>
+        <button type="button" class="btn btn-outline" onclick="applyEqPreset('treble')">Aigus</button>
+        <button type="button" class="btn btn-outline" onclick="applyEqPreset('vocal')">Voix</button>
+        <button type="button" class="btn btn-outline" onclick="applyEqPreset('rock')">Rock</button>
+        <button type="button" class="btn btn-outline" onclick="applyEqPreset('pop')">Pop</button>
+    </div>
+    <?php foreach (['Boost Basses','60 Hz','230 Hz','910 Hz','3.6 kHz','14 kHz'] as $i => $lbl): ?>
+    <div class="eq-row">
+        <span class="eq-label"><?php echo htmlspecialchars($lbl); ?></span>
+        <input type="range" min="-12" max="12" step="1" value="0" id="eq-slider-<?php echo $i; ?>" class="vol-slider"
+               oninput="initAudioGraph();setEqBand(<?php echo $i; ?>,parseFloat(this.value));document.getElementById('eq-val-<?php echo $i; ?>').innerText=this.value+' dB'">
+        <span class="eq-val" id="eq-val-<?php echo $i; ?>">0 dB</span>
+    </div>
+    <?php endforeach; ?>
+    <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:10px;" onclick="closeModal('equalizerModal')">Fermer</button>
 </div></div>
 
 <div id="uploadModal" class="modal"><div class="modal-content">
     <h2 style="margin-top:0;">Upload</h2>
-    <form method="post" enctype="multipart/form-data">
-        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
-        <input type="text" name="title" placeholder="Titre (auto-détecté si vide)">
-        <input type="text" name="artist" placeholder="Artiste (auto-détecté si vide)">
+    <form id="upload-form">
+        <input type="text" id="upload-title" placeholder="Titre (auto-détecté si vide)">
+        <input type="text" id="upload-artist" placeholder="Artiste (auto-détecté si vide)">
         <label style="font-size:.85em;color:var(--text-muted);display:block;margin-bottom:5px;">Genre</label>
-        <select name="genre">
+        <select id="upload-genre">
             <?php foreach ($genresList as $g): ?>
                 <option value="<?php echo htmlspecialchars($g); ?>"><?php echo htmlspecialchars($g); ?></option>
             <?php endforeach; ?>
         </select>
         <label style="font-size:.85em;color:var(--text-muted);display:block;margin-bottom:5px;">Fichier Audio</label>
-        <input type="file" name="music" accept="audio/*" required>
+        <input type="file" id="upload-music" accept="audio/*" required>
         <label style="font-size:.85em;color:var(--text-muted);display:block;margin-bottom:5px;">Cover (optionnel)</label>
-        <input type="file" name="cover" accept="image/*">
+        <input type="file" id="upload-cover" accept="image/*">
         <div style="display:flex;gap:15px;margin-top:20px;">
-            <button type="button" class="btn" style="flex:1;justify-content:center;color:#888;border:1px solid var(--border-color);" onclick="closeModal('uploadModal')">Annuler</button>
-            <button type="submit" name="upload" class="btn btn-primary" style="flex:1;justify-content:center;">Publier</button>
+            <button type="button" class="btn" style="flex:1;justify-content:center;color:var(--text-muted);border:1px solid var(--border-color);" onclick="closeModal('uploadModal')">Annuler</button>
+            <button type="submit" class="btn btn-primary" style="flex:1;justify-content:center;">Publier</button>
         </div>
     </form>
 </div></div>
 
 <div id="editTrackModal" class="modal"><div class="modal-content">
     <h2 style="margin-top:0;">Modifier la piste</h2>
-    <form method="post" enctype="multipart/form-data">
-        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
-        <input type="hidden" name="track_id" id="edit-track-id">
-        <input type="text" name="new_title" id="edit-track-title" placeholder="Titre" required>
-        <input type="text" name="new_artist" id="edit-track-artist" placeholder="Artiste">
+    <form id="edit-track-form">
+        <input type="hidden" id="edit-track-id">
+        <input type="text" id="edit-track-title" placeholder="Titre" required>
+        <input type="text" id="edit-track-artist" placeholder="Artiste">
         <label style="font-size:.85em;color:var(--text-muted);display:block;margin-bottom:5px;">Genre</label>
-        <select name="new_genre" id="edit-track-genre">
+        <select id="edit-track-genre">
             <?php foreach ($genresList as $g): ?>
                 <option value="<?php echo htmlspecialchars($g); ?>"><?php echo htmlspecialchars($g); ?></option>
             <?php endforeach; ?>
         </select>
         <label style="font-size:.85em;color:var(--text-muted);display:block;margin-bottom:5px;">Nouvelle cover</label>
-        <input type="file" name="new_cover" accept="image/*">
+        <input type="file" id="edit-track-cover" accept="image/*">
         <div style="display:flex;gap:15px;margin-top:20px;">
-            <button type="button" class="btn" style="flex:1;justify-content:center;color:#888;border:1px solid var(--border-color);" onclick="closeModal('editTrackModal')">Annuler</button>
-            <button type="submit" name="edit_track" class="btn btn-primary" style="flex:1;justify-content:center;">Enregistrer</button>
+            <button type="button" class="btn" style="flex:1;justify-content:center;color:var(--text-muted);border:1px solid var(--border-color);" onclick="closeModal('editTrackModal')">Annuler</button>
+            <button type="submit" class="btn btn-primary" style="flex:1;justify-content:center;">Enregistrer</button>
         </div>
     </form>
 </div></div>
 
 <div id="playlistModal" class="modal"><div class="modal-content">
     <h2 id="modal-playlist-title" style="margin-top:0;">Playlist</h2>
-    <form method="post" id="playlist-form">
-        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
-        <input type="hidden" name="playlist_id" id="form-playlist-id">
-        <input type="text" name="playlist_name" id="form-playlist-name" placeholder="Nom du mix" required>
+    <form id="playlist-form">
+        <input type="hidden" id="form-playlist-id">
+        <input type="text" id="form-playlist-name" placeholder="Nom du mix" required>
         <input type="text" id="playlist-search" placeholder="🔍 Rechercher..." onkeyup="filterPlaylistTracks()" style="margin-bottom:10px;">
         <div style="display:flex;justify-content:space-between;font-size:.85em;color:var(--text-muted);margin-bottom:10px;">
             <span>Sélectionnez les titres :</span><span id="selected-count">0 sélectionné(s)</span>
@@ -1112,18 +982,18 @@ $all_playlists = $db->query(
         <div class="song-select-container">
             <?php foreach ($all_tracks as $t): ?>
                 <div class="song-select-item" onclick="toggleSelection(this)" data-title="<?php echo strtolower(htmlspecialchars($t['title'])); ?>">
-                    <input type="checkbox" name="selected_songs[]" value="<?php echo $t['id']; ?>" class="song-cb" data-id="<?php echo $t['id']; ?>">
-                    <img src="covers/<?php echo htmlspecialchars($t['cover']); ?>" loading="lazy" style="width:40px;height:40px;border-radius:8px;margin-right:12px;object-fit:cover;" onerror="this.src='covers/default.png'">
+                    <input type="checkbox" class="song-cb" data-id="<?php echo $t['id']; ?>">
+                    <img src="<?php echo htmlspecialchars($t['cover_url']); ?>" loading="lazy" style="width:40px;height:40px;border-radius:8px;margin-right:12px;object-fit:cover;" onerror="this.onerror=null;this.src='covers/default.png'">
                     <div style="flex:1;overflow:hidden;">
                         <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><?php echo htmlspecialchars($t['title']); ?></div>
-                        <div style="font-size:.85em;color:#888;"><?php echo htmlspecialchars($t['artist']); ?></div>
+                        <div style="font-size:.85em;color:var(--text-muted);"><?php echo htmlspecialchars($t['artist']); ?></div>
                     </div>
                 </div>
             <?php endforeach; ?>
         </div>
         <div style="display:flex;gap:15px;margin-top:20px;">
-            <button type="button" class="btn" style="flex:1;justify-content:center;color:#888;border:1px solid var(--border-color);" onclick="closeModal('playlistModal')">Annuler</button>
-            <button type="submit" name="save_playlist" class="btn btn-primary" style="flex:1;justify-content:center;">Enregistrer</button>
+            <button type="button" class="btn" style="flex:1;justify-content:center;color:var(--text-muted);border:1px solid var(--border-color);" onclick="closeModal('playlistModal')">Annuler</button>
+            <button type="submit" class="btn btn-primary" style="flex:1;justify-content:center;">Enregistrer</button>
         </div>
     </form>
 </div></div>
@@ -1148,41 +1018,60 @@ $all_playlists = $db->query(
         <button class="control-btn" onclick="prevTrack()"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button>
         <button id="masterPlay" onclick="togglePlay()"><svg viewBox="0 0 24 24" style="margin-left:2px;"><path d="M8 5v14l11-7z"/></svg></button>
         <button class="control-btn" onclick="nextTrack()"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
-        <button class="control-btn" id="loopBtn" onclick="toggleLoop()"><svg viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg></button>
+        <button class="control-btn" id="loopBtn" onclick="toggleLoop()" title="Lecture normale"><svg viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg><span class="loop-badge">1</span></button>
         <div class="volume-container">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="#a196b4"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="var(--text-muted)"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
             <input type="range" id="desktop-vol" class="vol-slider" min="0" max="1" step="0.01" value="1">
         </div>
     </div>
 </div>
 
 <div id="full-player">
-    <div class="fp-header">
-        <button class="fp-btn" onclick="closeFullPlayer()"><svg viewBox="0 0 24 24" style="width:30px;height:30px;fill:white;"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg></button>
-        <span style="font-size:.8em;letter-spacing:1px;color:var(--text-muted);font-weight:600;">LECTURE EN COURS</span>
-        <button class="fp-btn" onclick="toggleQueue();closeFullPlayer();"><svg viewBox="0 0 24 24" style="width:24px;height:24px;fill:white;"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg></button>
-    </div>
-    <div class="fp-art-container"><img src="covers/<?php echo htmlspecialchars($default_cover); ?>" id="fp-cover" loading="lazy"></div>
-    <div class="fp-info-area">
-        <div id="fp-title"><span id="fp-title-text">Titre</span></div>
-        <div id="fp-artist" style="font-size:1.1em;color:var(--accent);font-weight:500;">Artiste</div>
-    </div>
-    <div class="fp-progress-wrapper">
-        <div class="progress-bg" id="fp-progress-area" style="height:6px;background:rgba(255,255,255,.2);"><div class="progress-fill" id="fp-progress-bar" style="background:white;"></div></div>
-        <div style="display:flex;justify-content:space-between;margin-top:10px;font-size:.85em;color:#ccc;font-family:monospace;"><span id="fp-curr-time">0:00</span><span id="fp-total-time">0:00</span></div>
-        <div class="volume-container fp-volume-container">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="white"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
-            <input type="range" id="mobile-vol" class="vol-slider" min="0" max="1" step="0.01" value="1">
+    <div class="fp-main">
+        <div class="fp-header">
+            <button class="fp-btn" onclick="closeFullPlayer()"><svg viewBox="0 0 24 24" style="width:30px;height:30px;fill:var(--player-text);"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg></button>
+            <span style="font-size:.8em;letter-spacing:1px;color:var(--text-muted);font-weight:600;">LECTURE EN COURS</span>
+            <div style="display:flex;gap:6px;">
+                <button class="fp-btn" id="lyricsBtn" onclick="toggleFpTab('lyrics')" title="Paroles"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:var(--player-text);"><path d="M20 2H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h4l4 4 4-4h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h9v2H6V9zm6 5H6v-2h6v2zm5-6H6V6h11v2z"/></svg></button>
+                <button class="fp-btn" id="fpQueueBtn" onclick="toggleFpTab('queue')" title="File d'attente"><svg viewBox="0 0 24 24" style="width:24px;height:24px;fill:var(--player-text);"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg></button>
+            </div>
+        </div>
+        <div class="fp-art-container"><img src="covers/<?php echo htmlspecialchars($default_cover); ?>" id="fp-cover" loading="lazy"></div>
+        <div class="fp-info-area">
+            <div id="fp-title"><span id="fp-title-text">Titre</span></div>
+            <div id="fp-artist" style="font-size:1.1em;color:var(--accent);font-weight:500;">Artiste</div>
+        </div>
+        <div class="fp-progress-wrapper">
+            <div class="progress-bg" id="fp-progress-area" style="height:6px;background:rgba(255,255,255,.2);"><div class="progress-fill" id="fp-progress-bar" style="background:linear-gradient(90deg,var(--primary),var(--accent));"></div></div>
+            <div style="display:flex;justify-content:space-between;margin-top:10px;font-size:.85em;color:var(--text-muted);font-family:monospace;"><span id="fp-curr-time">0:00</span><span id="fp-total-time">0:00</span></div>
+            <div class="volume-container fp-volume-container">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="var(--player-text)"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+                <input type="range" id="mobile-vol" class="vol-slider" min="0" max="1" step="0.01" value="1">
+            </div>
+        </div>
+        <div class="fp-controls">
+            <button class="control-btn" id="fp-shuffleBtn" onclick="toggleShuffle()" style="transform:scale(1.2);"><svg viewBox="0 0 24 24"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg></button>
+            <button class="control-btn" onclick="prevTrack()" style="transform:scale(1.5);"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button>
+            <button id="fp-masterPlay" onclick="togglePlay()" style="background:white;border-radius:50%;width:75px;height:75px;border:none;display:flex;align-items:center;justify-content:center;box-shadow:0 0 40px rgba(255,255,255,.2);">
+                <svg viewBox="0 0 24 24" style="width:35px;height:35px;fill:black;margin-left:4px;"><path d="M8 5v14l11-7z"/></svg>
+            </button>
+            <button class="control-btn" onclick="nextTrack()" style="transform:scale(1.5);"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
+            <button class="control-btn" id="fp-loopBtn" onclick="toggleLoop()" style="transform:scale(1.2);position:relative;" title="Lecture normale"><svg viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg><span class="loop-badge">1</span></button>
         </div>
     </div>
-    <div class="fp-controls">
-        <button class="control-btn" id="fp-shuffleBtn" onclick="toggleShuffle()" style="transform:scale(1.2);"><svg viewBox="0 0 24 24"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg></button>
-        <button class="control-btn" onclick="prevTrack()" style="transform:scale(1.5);"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button>
-        <button id="fp-masterPlay" onclick="togglePlay()" style="background:white;border-radius:50%;width:75px;height:75px;border:none;display:flex;align-items:center;justify-content:center;box-shadow:0 0 40px rgba(255,255,255,.2);">
-            <svg viewBox="0 0 24 24" style="width:35px;height:35px;fill:black;margin-left:4px;"><path d="M8 5v14l11-7z"/></svg>
-        </button>
-        <button class="control-btn" onclick="nextTrack()" style="transform:scale(1.5);"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
-        <button class="control-btn" id="fp-loopBtn" onclick="toggleLoop()" style="transform:scale(1.2);position:relative;"><svg viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg><span id="fp-loop-ind" style="display:none;position:absolute;top:-5px;right:-5px;background:var(--primary);width:10px;height:10px;border-radius:50%;"></span></button>
+    <div id="fp-sidebar">
+        <div class="fp-sidebar-tabs">
+            <button class="fp-tab-btn active" id="fpTabQueueBtn" onclick="openFpTab('queue')">File d'attente</button>
+            <button class="fp-tab-btn" id="fpTabLyricsBtn" onclick="openFpTab('lyrics')">Paroles</button>
+        </div>
+        <div class="fp-sidebar-content">
+            <div id="fp-queue-tab" class="fp-tab-pane active">
+                <div id="fp-queue-list"><p style="color:var(--text-muted);">File vide...</p></div>
+            </div>
+            <div id="fp-lyrics-tab" class="fp-tab-pane">
+                <div id="lyrics-content"><p class="lyrics-status">Aucune piste en cours.</p></div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -1192,7 +1081,37 @@ $all_playlists = $db->query(
     const ALL_MUSIC_DATA   = <?php echo json_encode($all_tracks, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>;
     const CURRENT_USER_ID  = <?php echo json_encode($user_id); ?>;
     const IS_ADMIN         = <?php echo json_encode($is_admin); ?>;
-    const CSRF_TOKEN       = <?php echo json_encode($csrf_token); ?>;
+    // Couleurs par défaut du site (panneau admin), utilisées uniquement pour
+    // afficher un aperçu fidèle du swatch "Site (Défaut)" dans le thème.
+    const SERVER_PRIMARY   = <?php echo json_encode($color_primary); ?>;
+    const SERVER_ACCENT    = <?php echo json_encode($color_accent); ?>;
+    // Identifiants réinjectés côté client pour parler directement à api.php,
+    // exactement comme le fait le client Android (PurpleClient.postRequest) :
+    // api.php n'a pas de session, chaque appel authentifié doit les fournir.
+    const API_AUTH = {
+        username: <?php echo json_encode($username); ?>,
+        password: <?php echo json_encode($api_pw); ?>
+    };
+
+    async function apiCall(action, params = {}) {
+        const body = new URLSearchParams({ ...params, username: API_AUTH.username, password: API_AUTH.password });
+        try {
+            const res = await fetch('api.php?action=' + encodeURIComponent(action), { method: 'POST', body });
+            return await res.json();
+        } catch (e) {
+            return { status: 'error', message: 'Impossible de contacter api.php.' };
+        }
+    }
+    async function apiCallForm(action, formData) {
+        formData.append('username', API_AUTH.username);
+        formData.append('password', API_AUTH.password);
+        try {
+            const res = await fetch('api.php?action=' + encodeURIComponent(action), { method: 'POST', body: formData });
+            return await res.json();
+        } catch (e) {
+            return { status: 'error', message: 'Impossible de contacter api.php.' };
+        }
+    }
 
     const audio        = document.getElementById('mainAudio');
     const progressBar  = document.getElementById('progress-bar');
@@ -1264,7 +1183,7 @@ $all_playlists = $db->query(
         const chunk = CURRENT_VIEW_DATA.slice(renderedCount, renderedCount + RENDER_CHUNK);
         if (renderedCount === 0) listContainer.innerHTML = '';
         if (chunk.length === 0 && renderedCount === 0) {
-            listContainer.innerHTML = '<div style="padding:40px;text-align:center;color:#666;">Aucune piste trouvée.</div>'; return;
+            listContainer.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-muted);">Aucune piste trouvée.</div>'; return;
         }
         const fragment = document.createDocumentFragment();
         chunk.forEach((t, index) => {
@@ -1272,7 +1191,7 @@ $all_playlists = $db->query(
             const safeTitle  = escapeHTML(t.title);
             const safeArtist = escapeHTML(t.artist);
             const safeGenre  = escapeHTML(t.genre || 'Autre');
-            const safeCover  = escapeHTML(t.cover);
+            const safeCover  = escapeHTML(t.cover_url);
             const jsTitle    = safeTitle.replace(/'/g,"\\'");
             const jsArtist   = safeArtist.replace(/'/g,"\\'");
             const jsGenre    = safeGenre.replace(/'/g,"\\'");
@@ -1280,12 +1199,12 @@ $all_playlists = $db->query(
             if (t.uploader_id == CURRENT_USER_ID || IS_ADMIN) {
                 editButtons = `
                     <button class="btn btn-outline" style="font-size:.7em;padding:6px 10px;border-radius:8px;" onclick="openEditTrackModal(${t.id},'${jsTitle}','${jsArtist}','${jsGenre}')">✎</button>
-                    <a href="?delete_track=${t.id}&csrf_token=${CSRF_TOKEN}" class="btn btn-danger" style="border-radius:8px;" onclick="return confirm('Supprimer ?')">✕</a>`;
+                    <button class="btn btn-danger" style="border-radius:8px;" onclick="deleteTrack(${t.id})">✕</button>`;
             }
             const div = document.createElement('div'); div.className = 'track-item';
             div.innerHTML = `
                 <div class="track-index">${idx}</div>
-                <img src="covers/${safeCover}" loading="lazy" class="mini-cover" onerror="this.src='covers/default.png'">
+                <img src="${safeCover}" loading="lazy" class="mini-cover" onerror="this.onerror=null;this.src='covers/default.png'">
                 <div style="cursor:pointer;overflow:hidden;" onclick="playTrackById(${t.id})">
                     <div style="font-weight:700;font-size:1.05em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px;">${safeTitle}</div>
                     <div style="font-size:.85em;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
@@ -1333,6 +1252,15 @@ $all_playlists = $db->query(
         if (p.get('page')) showSection(p.get('page'), false);
         if (p.get('list')) currentPlaylistId = p.get('list');
         if (p.get('v'))    playTrackById(p.get('v'), false);
+
+        renderThemeSwatches();
+        const savedTheme = localStorage.getItem('theme_base');
+        if (savedTheme) applyTheme(savedTheme);
+        renderEqSliders();
+
+        document.getElementById('upload-form').addEventListener('submit', handleUploadSubmit);
+        document.getElementById('edit-track-form').addEventListener('submit', handleEditTrackSubmit);
+        document.getElementById('playlist-form').addEventListener('submit', handlePlaylistSubmit);
     });
 
     window.onpopstate = () => window.location.reload();
@@ -1343,25 +1271,31 @@ $all_playlists = $db->query(
     }
     function toggleQueue() { queuePanel.classList.toggle('open'); }
     function openSmartPlayer() {
-        if (window.innerWidth <= 768) { document.getElementById('full-player').classList.add('active'); document.body.style.overflow = 'hidden'; }
-        else toggleQueue();
+        document.getElementById('full-player').classList.add('active');
+        document.body.style.overflow = 'hidden';
     }
     function closeFullPlayer() { document.getElementById('full-player').classList.remove('active'); document.body.style.overflow = 'auto'; }
 
     function updateQueueUI() {
-        queueList.innerHTML = '';
-        if (!queue.length) { queueList.innerHTML = '<p style="color:#666;">File vide...</p>'; return; }
+        const containers = [queueList, document.getElementById('fp-queue-list')].filter(Boolean);
+        if (!queue.length) {
+            containers.forEach(c => c.innerHTML = '<p style="color:var(--text-muted);">File vide...</p>');
+            return;
+        }
+        containers.forEach(c => c.innerHTML = '');
         queue.forEach((track, index) => {
-            const div = document.createElement('div'); div.className = `queue-item ${index === currentIndex ? 'active' : ''}`;
-            div.innerHTML = `
-                <img src="covers/${escapeHTML(track.cover)}" loading="lazy" style="width:36px;height:36px;border-radius:8px;object-fit:cover;">
-                <div style="flex:1;overflow:hidden;">
-                    <div style="font-size:.9em;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHTML(track.title)}</div>
-                    <div style="font-size:.75em;color:#888;">${escapeHTML(track.artist)}</div>
-                </div>
-                ${index === currentIndex ? '<span style="color:var(--accent);font-size:1.5em;">•</span>' : ''}`;
-            div.onclick = () => { currentIndex = index; loadTrack(true); };
-            queueList.appendChild(div);
+            containers.forEach(container => {
+                const div = document.createElement('div'); div.className = `queue-item ${index === currentIndex ? 'active' : ''}`;
+                div.innerHTML = `
+                    <img src="${escapeHTML(track.cover_url)}" loading="lazy" style="width:36px;height:36px;border-radius:8px;object-fit:cover;">
+                    <div style="flex:1;overflow:hidden;">
+                        <div style="font-size:.9em;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHTML(track.title)}</div>
+                        <div style="font-size:.75em;color:var(--text-muted);">${escapeHTML(track.artist)}</div>
+                    </div>
+                    ${index === currentIndex ? '<span style="color:var(--accent);font-size:1.5em;">•</span>' : ''}`;
+                div.onclick = () => { currentIndex = index; loadTrack(true); };
+                container.appendChild(div);
+            });
         });
     }
 
@@ -1381,8 +1315,8 @@ $all_playlists = $db->query(
     }
 
     async function playPlaylist(ids, pId = null) {
-        const res  = await fetch('?get_playlist_tracks=' + ids);
-        let data   = await res.json();
+        const idList = String(ids).split(',').map(Number).filter(Boolean);
+        let data = idList.map(id => ALL_MUSIC_DATA.find(t => t.id === id)).filter(Boolean);
         if (hiddenGenres.length) data = data.filter(t => !hiddenGenres.includes(t.genre || 'Autre'));
         if (!data.length) { alert('Aucune musique disponible.'); return; }
         currentPlaylistId = pId; originalQueue = [...data];
@@ -1393,19 +1327,19 @@ $all_playlists = $db->query(
 
     function loadTrack(autoPlay = true) {
         if (!queue[currentIndex]) return;
-        const track = queue[currentIndex]; audio.src = 'music/' + track.filename;
-        fetch('?increment_play=' + track.id).catch(() => {});
+        const track = queue[currentIndex]; audio.src = track.stream_url;
+        apiCall('increment_play', { track_id: track.id }).catch(() => {});
         track.play_count = (parseInt(track.play_count) || 0) + 1;
         const g = ALL_MUSIC_DATA.find(t => t.id == track.id); if (g) g.play_count = track.play_count;
 
         playTitle.innerText = track.title;
-        playCover.src       = 'covers/' + (track.cover || 'default.png');
+        playCover.src       = track.cover_url;
         playStatus.innerText = track.artist || 'Artiste inconnu';
 
         const fpTitle = document.getElementById('fp-title');
         fpTitle.innerHTML = `<span id="fp-title-text">${escapeHTML(track.title)}</span>`;
         document.getElementById('fp-artist').innerText = track.artist || 'Artiste inconnu';
-        document.getElementById('fp-cover').src = 'covers/' + (track.cover || 'default.png');
+        document.getElementById('fp-cover').src = track.cover_url;
 
         const titleSpan = document.getElementById('fp-title-text');
         titleSpan.classList.remove('scrolling-active');
@@ -1418,13 +1352,16 @@ $all_playlists = $db->query(
         if ('mediaSession' in navigator) {
             navigator.mediaSession.metadata = new MediaMetadata({
                 title: track.title, artist: track.artist || 'Purple Music',
-                artwork: [{ src: 'covers/' + (track.cover || 'default.png'), sizes: '96x96', type: 'image/png' }]
+                artwork: [{ src: track.cover_url, sizes: '96x96', type: 'image/png' }]
             });
         }
         updateUrl();
+        if (lyricsVisible) fetchLyrics(track); else { currentParsedLyrics = []; }
         const fpPauseIcon = '<svg viewBox="0 0 24 24" style="width:35px;height:35px;fill:black;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>';
         const fpPlayIcon  = '<svg viewBox="0 0 24 24" style="width:35px;height:35px;fill:black;margin-left:4px;"><path d="M8 5v14l11-7z"/></svg>';
         if (autoPlay) {
+            initAudioGraph();
+            if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
             audio.play().catch(e => console.error(e));
             masterPlay.innerHTML = pauseIcon;
             document.getElementById('fp-masterPlay').innerHTML = fpPauseIcon;
@@ -1454,6 +1391,8 @@ $all_playlists = $db->query(
 
     function togglePlay() {
         if (!audio.src) return;
+        initAudioGraph();
+        if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
         const fpP = '<svg viewBox="0 0 24 24" style="width:35px;height:35px;fill:black;margin-left:4px;"><path d="M8 5v14l11-7z"/></svg>';
         const fpPa = '<svg viewBox="0 0 24 24" style="width:35px;height:35px;fill:black;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>';
         if (audio.paused) { audio.play(); masterPlay.innerHTML = pauseIcon; document.getElementById('fp-masterPlay').innerHTML = fpPa; }
@@ -1467,7 +1406,7 @@ $all_playlists = $db->query(
         if (queue.length) {
             const cur = queue[currentIndex];
             queue = isShuffle ? shuffleArray([...originalQueue]) : [...originalQueue];
-            currentIndex = queue.findIndex(t => t.filename === cur.filename);
+            currentIndex = queue.findIndex(t => t.id === cur.id);
             if (currentIndex === -1) currentIndex = 0;
             updateQueueUI();
         }
@@ -1476,11 +1415,14 @@ $all_playlists = $db->query(
     function toggleLoop() {
         loopMode = (loopMode + 1) % 3;
         const active = loopMode > 0;
-        document.getElementById('loopBtn').classList.toggle('active', active);
-        document.getElementById('fp-loopBtn').classList.toggle('active', active);
-        document.getElementById('loop-ind') && (document.getElementById('loop-ind').style.display = (loopMode === 2) ? 'flex' : 'none');
-        document.getElementById('fp-loop-ind').style.display = active ? 'block' : 'none';
-        document.getElementById('fp-loop-ind').style.background = (loopMode === 2) ? 'var(--primary)' : 'white';
+        const single = loopMode === 2;
+        const label  = single ? 'Répéter le titre' : (active ? 'Répéter la file' : 'Lecture normale');
+        document.querySelectorAll('#loopBtn, #fp-loopBtn').forEach(btn => {
+            btn.classList.toggle('active', active);
+            btn.title = label;
+            btn.setAttribute('aria-label', label);
+            btn.querySelector('.loop-badge').classList.toggle('show', single);
+        });
     }
 
     function shuffleArray(arr) {
@@ -1501,6 +1443,7 @@ $all_playlists = $db->query(
             document.getElementById('total-time').innerText = formatTime(audio.duration);
             document.getElementById('fp-total-time').innerText = formatTime(audio.duration);
         }
+        updateLyricsHighlight();
     };
     audio.onended = nextTrack;
 
@@ -1529,8 +1472,103 @@ $all_playlists = $db->query(
         document.getElementById('edit-track-id').value     = id;
         document.getElementById('edit-track-title').value  = title;
         document.getElementById('edit-track-artist').value = artist;
+        document.getElementById('edit-track-cover').value  = '';
         if (genre) document.getElementById('edit-track-genre').value = genre;
         openModal('editTrackModal');
+    }
+
+    // ── Suppression piste / playlist (via api.php) ──────────────
+    async function deleteTrack(id) {
+        if (!confirm('Supprimer cette piste ?')) return;
+        const res = await apiCall('delete_track', { track_id: id });
+        if (res.status === 'success') location.reload();
+        else alert(res.message || 'Erreur lors de la suppression.');
+    }
+    async function deletePlaylist(id) {
+        if (!confirm('Supprimer cette playlist ?')) return;
+        const res = await apiCall('playlist_mod', { playlist_id: id, mode: 'delete' });
+        if (res.status === 'success') location.reload();
+        else alert(res.message || 'Erreur lors de la suppression.');
+    }
+
+    // ── Upload (via api.php) ─────────────────────────────────────
+    let lastUploadTime = 0;
+    async function handleUploadSubmit(e) {
+        e.preventDefault();
+        if (Date.now() - lastUploadTime < 15000) { alert('Patiente quelques secondes avant un nouvel upload.'); return; }
+        const musicFile = document.getElementById('upload-music').files[0];
+        if (!musicFile) { alert('Choisis un fichier audio.'); return; }
+        const fd = new FormData();
+        fd.append('title',  document.getElementById('upload-title').value);
+        fd.append('artist', document.getElementById('upload-artist').value);
+        fd.append('genre',  document.getElementById('upload-genre').value);
+        fd.append('music',  musicFile);
+        const coverFile = document.getElementById('upload-cover').files[0];
+        if (coverFile) fd.append('cover', coverFile);
+
+        const btn = e.target.querySelector('button[type=submit]');
+        btn.disabled = true; const oldLabel = btn.innerText; btn.innerText = 'Envoi…';
+        lastUploadTime = Date.now();
+        const res = await apiCallForm('upload', fd);
+        if (res.status === 'success') { location.reload(); return; }
+        btn.disabled = false; btn.innerText = oldLabel;
+        alert(res.message || "Erreur lors de l'upload.");
+    }
+
+    // ── Édition piste (via api.php) ──────────────────────────────
+    async function handleEditTrackSubmit(e) {
+        e.preventDefault();
+        const fd = new FormData();
+        fd.append('track_id',  document.getElementById('edit-track-id').value);
+        fd.append('title',     document.getElementById('edit-track-title').value);
+        fd.append('artist',    document.getElementById('edit-track-artist').value);
+        fd.append('new_genre', document.getElementById('edit-track-genre').value);
+        const coverFile = document.getElementById('edit-track-cover').files[0];
+        if (coverFile) fd.append('new_cover', coverFile);
+        const res = await apiCallForm('edit_track', fd);
+        if (res.status === 'success') location.reload();
+        else alert(res.message || 'Erreur lors de la modification.');
+    }
+
+    // ── Playlists (via api.php) ───────────────────────────────────
+    // api.php n'a pas de mode "remplacer toute la liste" : on calcule le
+    // delta entre la sélection d'origine et la nouvelle, puis on envoie
+    // une suite d'appels add/remove — comme le ferait un client mobile.
+    let editingPlaylistOriginalIds = [];
+    async function handlePlaylistSubmit(e) {
+        e.preventDefault();
+        const name = document.getElementById('form-playlist-name').value.trim();
+        const pid  = document.getElementById('form-playlist-id').value;
+        const selectedIds = Array.from(document.querySelectorAll('.song-cb:checked')).map(cb => parseInt(cb.dataset.id, 10));
+        const btn = e.target.querySelector('button[type=submit]');
+        btn.disabled = true;
+        try {
+            if (!pid) {
+                const createRes = await apiCall('playlist_create', { name });
+                if (createRes.status !== 'success') { alert(createRes.message || 'Erreur.'); return; }
+                const playlists = await fetch('api.php?action=playlists').then(r => r.json());
+                const mine = Array.isArray(playlists)
+                    ? playlists.filter(p => p.name === name && p.creator === API_AUTH.username)
+                    : [];
+                const created = mine.sort((a, b) => b.id - a.id)[0];
+                if (created) {
+                    for (const id of selectedIds) {
+                        await apiCall('playlist_mod', { playlist_id: created.id, mode: 'add', track_id: id });
+                    }
+                }
+            } else {
+                const originalIds = editingPlaylistOriginalIds.map(Number);
+                const toAdd    = selectedIds.filter(id => !originalIds.includes(id));
+                const toRemove = originalIds.filter(id => !selectedIds.includes(id));
+                const renameRes = await apiCall('playlist_mod', { playlist_id: pid, mode: 'rename', new_name: name });
+                if (renameRes.status !== 'success') { alert(renameRes.message || 'Erreur.'); return; }
+                for (const id of toAdd)    await apiCall('playlist_mod', { playlist_id: pid, mode: 'add', track_id: id });
+                for (const id of toRemove) await apiCall('playlist_mod', { playlist_id: pid, mode: 'remove', track_id: id });
+            }
+            location.reload();
+        } finally {
+            btn.disabled = false;
+        }
     }
 
     function filterPlaylistTracks() {
@@ -1554,6 +1592,7 @@ $all_playlists = $db->query(
         document.getElementById('form-playlist-id').value = '';
         document.getElementById('form-playlist-name').value = '';
         document.getElementById('playlist-search').value = '';
+        editingPlaylistOriginalIds = [];
         document.querySelectorAll('.song-select-item').forEach(div => { div.classList.remove('selected'); div.style.display = 'flex'; });
         document.querySelectorAll('.song-cb').forEach(cb => cb.checked = false);
         updateSelectedCount(); openModal('playlistModal');
@@ -1564,7 +1603,8 @@ $all_playlists = $db->query(
         document.getElementById('form-playlist-id').value = p.id;
         document.getElementById('form-playlist-name').value = p.name;
         document.getElementById('playlist-search').value = '';
-        const ids = String(p.song_ids).split(',');
+        const ids = String(p.song_ids).split(',').filter(Boolean);
+        editingPlaylistOriginalIds = ids;
         document.querySelectorAll('.song-select-item').forEach(div => {
             const cb = div.querySelector('.song-cb');
             cb.checked = ids.includes(cb.dataset.id);
@@ -1572,6 +1612,369 @@ $all_playlists = $db->query(
             div.style.display = 'flex';
         });
         updateSelectedCount(); openModal('playlistModal');
+    }
+
+    // ===========================================================
+    //  ÉGALISEUR (Web Audio API) — équivalent web du 5-band EQ +
+    //  bass boost du client Android (EqualizerManager.kt).
+    // ===========================================================
+    let audioCtx = null, eqNodes = null;
+    const EQ_BANDS = [
+        { freq: 100,   type: 'lowshelf' },
+        { freq: 60,    type: 'peaking' },
+        { freq: 230,   type: 'peaking' },
+        { freq: 910,   type: 'peaking' },
+        { freq: 3600,  type: 'peaking' },
+        { freq: 14000, type: 'peaking' },
+    ];
+    const EQ_PRESETS = {
+        flat:   [0,0,0,0,0,0],
+        bass:   [8,6,3,0,0,0],
+        treble: [0,0,0,2,5,8],
+        vocal:  [-2,-3,1,4,3,0],
+        rock:   [4,3,-2,-1,2,5],
+        pop:    [2,4,3,0,-1,2],
+    };
+    let eqSettings = JSON.parse(localStorage.getItem('eqSettings') || 'null') || { enabled: false, gains: [0,0,0,0,0,0] };
+
+    function initAudioGraph() {
+        if (audioCtx) return;
+        try {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            let node = audioCtx.createMediaElementSource(audio);
+            eqNodes = EQ_BANDS.map((b, i) => {
+                const f = audioCtx.createBiquadFilter();
+                f.type = b.type; f.frequency.value = b.freq;
+                f.gain.value = eqSettings.enabled ? (eqSettings.gains[i] || 0) : 0;
+                if (b.type === 'peaking') f.Q.value = 1;
+                node.connect(f); node = f; return f;
+            });
+            node.connect(audioCtx.destination);
+        } catch (e) { console.warn("Égaliseur indisponible sur ce navigateur.", e); }
+    }
+    function setEqEnabled(on) {
+        eqSettings.enabled = on;
+        if (eqNodes) eqNodes.forEach((f, i) => { f.gain.value = on ? (eqSettings.gains[i] || 0) : 0; });
+        localStorage.setItem('eqSettings', JSON.stringify(eqSettings));
+        const toggle = document.getElementById('eqEnableToggle');
+        if (toggle) toggle.checked = on;
+    }
+    function setEqBand(i, val) {
+        eqSettings.gains[i] = val;
+        if (eqSettings.enabled && eqNodes) eqNodes[i].gain.value = val;
+        localStorage.setItem('eqSettings', JSON.stringify(eqSettings));
+    }
+    function applyEqPreset(name) {
+        eqSettings.gains = [...EQ_PRESETS[name]];
+        eqSettings.enabled = true;
+        initAudioGraph();
+        if (eqNodes) eqNodes.forEach((f, i) => { f.gain.value = eqSettings.gains[i]; });
+        localStorage.setItem('eqSettings', JSON.stringify(eqSettings));
+        renderEqSliders();
+    }
+    function renderEqSliders() {
+        const toggle = document.getElementById('eqEnableToggle');
+        if (toggle) toggle.checked = eqSettings.enabled;
+        EQ_BANDS.forEach((b, i) => {
+            const slider = document.getElementById('eq-slider-' + i);
+            if (slider) slider.value = eqSettings.gains[i] || 0;
+            const label = document.getElementById('eq-val-' + i);
+            if (label) label.innerText = (eqSettings.gains[i] || 0) + ' dB';
+        });
+    }
+
+    // ===========================================================
+    //  THÈMES (préréglages du client Android — ThemeUtils.kt porté
+    //  en JS). Un simple thème "de base" génère panneau/accent/
+    //  bordures/texte via les mêmes formules HSL.
+    // ===========================================================
+    const THEME_PRESETS = [
+        { name: 'Site (Défaut)', base: null },
+        { name: 'White Mode',     base: '#FFFFFF' },
+        { name: 'AMOLED',         base: '#000000' },
+        { name: 'Vibrant Purple', base: '#4A148C' },
+        { name: 'Electric Blue',  base: '#0D47A1' },
+        { name: 'Deep Teal',      base: '#004D40' },
+        { name: 'Cherry',         base: '#880E4F' },
+        { name: 'Midnight',       base: '#0A0E1A' },
+        { name: 'Forest',         base: '#0D140D' },
+        { name: 'Crimson',        base: '#140D0D' },
+        { name: 'Slate',          base: '#1A1A1B' },
+        { name: 'Jet Black',      base: '#0A0A0A' },
+        { name: 'Material',       base: '#121212' },
+    ];
+
+    function hexToRgb(hex) {
+        hex = hex.replace('#', '');
+        if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+        const num = parseInt(hex, 16);
+        return { r: (num >> 16) & 255, g: (num >> 8) & 255, b: num & 255 };
+    }
+    function rgbToHex(r, g, b) {
+        return '#' + [r, g, b].map(v => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, '0')).join('');
+    }
+    function hexToRgba(hex, a) { const { r, g, b } = hexToRgb(hex); return `rgba(${r},${g},${b},${a})`; }
+    function rgbToHsl(r, g, b) {
+        r /= 255; g /= 255; b /= 255;
+        const max = Math.max(r, g, b), min = Math.min(r, g, b);
+        let h, s, l = (max + min) / 2;
+        if (max === min) { h = s = 0; }
+        else {
+            const d = max - min;
+            s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+            switch (max) {
+                case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+                case g: h = (b - r) / d + 2; break;
+                default: h = (r - g) / d + 4;
+            }
+            h /= 6;
+        }
+        return [h * 360, s, l];
+    }
+    function hslToRgb(h, s, l) {
+        h /= 360; let r, g, b;
+        if (s === 0) { r = g = b = l; }
+        else {
+            const hue2rgb = (p, q, t) => { if (t < 0) t += 1; if (t > 1) t -= 1; if (t < 1/6) return p + (q - p) * 6 * t; if (t < 1/2) return q; if (t < 2/3) return p + (q - p) * (2/3 - t) * 6; return p; };
+            const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+            const p = 2 * l - q;
+            r = hue2rgb(p, q, h + 1/3); g = hue2rgb(p, q, h); b = hue2rgb(p, q, h - 1/3);
+        }
+        return [r * 255, g * 255, b * 255];
+    }
+    function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+    function deriveAccent(hex) {
+        if (hex.toLowerCase() === '#000000') return '#ffffff';
+        if (hex.toLowerCase() === '#ffffff') return '#8e44ad';
+        const { r, g, b } = hexToRgb(hex);
+        let [h, s, l] = rgbToHsl(r, g, b);
+        const light = l > 0.5;
+        if (light) { s = clamp(s + 0.5, 0.6, 1.0); l = clamp(l - 0.4, 0.3, 0.5); }
+        else       { s = clamp(s + 0.4, 0.5, 0.9); l = clamp(l + 0.5, 0.6, 0.85); }
+        if (s < 0.1) { h = 270; s = 0.6; if (light) l = 0.4; }
+        return rgbToHex(...hslToRgb(h, s, l));
+    }
+    // --primary sert de fond de bouton avec du texte blanc dessus (.btn-primary),
+    // contrairement à --accent qui sert de texte/icône SUR le fond sombre — deux
+    // rôles opposés qu'on ne peut pas partager. deriveAccent pousse volontiers vers
+    // des teintes claires (jusqu'à l=0.85, voire blanc pur sur AMOLED) pour rester
+    // lisible sur un fond noir ; ce même ton clair rendrait le texte blanc des
+    // boutons illisible. derivePrimary vise donc toujours une teinte assez sombre
+    // pour du texte blanc — vérifié via un vrai calcul de contraste WCAG plutôt
+    // qu'une luminosité fixe, car certaines teintes (teal, vert) restent "claires"
+    // à l'œil même à une luminosité HSL modérée.
+    function relLuminance(hex) {
+        const { r, g, b } = hexToRgb(hex);
+        const lin = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+        return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+    }
+    function contrastRatio(hexA, hexB) {
+        const l1 = relLuminance(hexA) + 0.05, l2 = relLuminance(hexB) + 0.05;
+        return Math.max(l1, l2) / Math.min(l1, l2);
+    }
+    function derivePrimary(hex) {
+        const { r, g, b } = hexToRgb(hex);
+        let [h, s] = rgbToHsl(r, g, b);
+        if (s < 0.12) { h = 270; s = 0.55; }
+        s = clamp(Math.max(s, 0.45), 0.45, 0.85);
+        let l = 0.42;
+        let candidate = rgbToHex(...hslToRgb(h, s, l));
+        while (l > 0.1 && contrastRatio('#ffffff', candidate) < 4.5) {
+            l -= 0.02;
+            candidate = rgbToHex(...hslToRgb(h, s, l));
+        }
+        return candidate;
+    }
+    function derivePanel(hex) {
+        if (hex.toLowerCase() === '#ffffff') return '#f5f5f7';
+        const { r, g, b } = hexToRgb(hex);
+        let [h, s, l] = rgbToHsl(r, g, b);
+        l = l > 0.5 ? clamp(l - 0.05, 0, 1) : clamp(l + 0.05, 0, 1);
+        return rgbToHex(...hslToRgb(h, s, l));
+    }
+    function deriveBorder(hex) {
+        if (hex.toLowerCase() === '#ffffff') return '#e0e0e0';
+        const { r, g, b } = hexToRgb(hex);
+        let [h, s, l] = rgbToHsl(r, g, b);
+        l = l > 0.5 ? clamp(l - 0.15, 0, 1) : clamp(l + 0.15, 0, 1);
+        return rgbToHex(...hslToRgb(h, s, l));
+    }
+    function deriveTextMuted(hex) {
+        const { r, g, b } = hexToRgb(hex);
+        let [h, s, l] = rgbToHsl(r, g, b);
+        const light = l > 0.5;
+        s = clamp(s * 0.5, 0, 1); l = light ? 0.4 : 0.7;
+        return rgbToHex(...hslToRgb(h, s, l));
+    }
+    function deriveText(hex) { const { r, g, b } = hexToRgb(hex); const [, , l] = rgbToHsl(r, g, b); return l > 0.5 ? '#1a1a1b' : '#e0e0e0'; }
+    // Surface "élevée" à N crans de l'arrière-plan (inputs, hover, focus…) —
+    // mêmes crans que derivePanel (2) mais paramétrable pour les autres surfaces.
+    function deriveElevated(hex, steps) {
+        const { r, g, b } = hexToRgb(hex);
+        let [h, s, l] = rgbToHsl(r, g, b);
+        const step = 0.025;
+        l = l > 0.5 ? clamp(l - steps * step, 0, 1) : clamp(l + steps * step, 0, 1);
+        return rgbToHex(...hslToRgb(h, s, l));
+    }
+
+    const THEME_VARS = ['--bg-dark','--bg-panel','--primary','--accent','--primary-rgb','--accent-rgb','--text','--text-muted','--border-color','--search-bg','--header-bg','--mob-nav-bg','--player-bg','--fp-gradient-1','--fp-gradient-2','--modal-bg','--input-bg','--elevated-bg','--player-text'];
+    function applyTheme(baseHex) {
+        const style = document.documentElement.style;
+        if (!baseHex) {
+            THEME_VARS.forEach(v => style.removeProperty(v));
+            localStorage.removeItem('theme_base');
+            renderThemeSwatches();
+            return;
+        }
+        const panel    = derivePanel(baseHex);
+        const primary  = derivePrimary(baseHex);
+        const accent   = deriveAccent(baseHex);
+        const border   = deriveBorder(baseHex);
+        const muted    = deriveTextMuted(baseHex);
+        const text     = deriveText(baseHex);
+        const inputBg  = deriveElevated(baseHex, 1);
+        const elevated = deriveElevated(baseHex, 3);
+        const { r: pr, g: pg, b: pb } = hexToRgb(primary);
+        const { r: ar, g: ag, b: ab } = hexToRgb(accent);
+        style.setProperty('--bg-dark', baseHex);
+        style.setProperty('--bg-panel', panel);
+        style.setProperty('--primary', primary);
+        style.setProperty('--accent', accent);
+        style.setProperty('--primary-rgb', `${pr},${pg},${pb}`);
+        style.setProperty('--accent-rgb', `${ar},${ag},${ab}`);
+        style.setProperty('--text', text);
+        style.setProperty('--text-muted', muted);
+        style.setProperty('--border-color', border);
+        style.setProperty('--search-bg', panel);
+        style.setProperty('--header-bg', hexToRgba(panel, 0.85));
+        style.setProperty('--mob-nav-bg', hexToRgba(panel, 0.95));
+        style.setProperty('--player-bg', hexToRgba(panel, 0.85));
+        style.setProperty('--fp-gradient-1', panel);
+        style.setProperty('--fp-gradient-2', baseHex);
+        style.setProperty('--modal-bg', panel);
+        style.setProperty('--input-bg', inputBg);
+        style.setProperty('--elevated-bg', elevated);
+        style.setProperty('--player-text', text);
+        localStorage.setItem('theme_base', baseHex);
+        renderThemeSwatches();
+    }
+    function renderThemeSwatches() {
+        const grid = document.getElementById('theme-swatch-grid');
+        if (!grid) return;
+        const savedBase = localStorage.getItem('theme_base');
+        grid.innerHTML = '';
+        THEME_PRESETS.forEach(p => {
+            const isActive = p.base === savedBase || (p.base === null && !savedBase);
+            const div = document.createElement('div');
+            div.className = 'theme-swatch' + (isActive ? ' active' : '');
+            const bg = p.base || `linear-gradient(135deg,${SERVER_PRIMARY},${SERVER_ACCENT})`;
+            div.innerHTML = `<div class="swatch-circle" style="background:${bg};"></div><span>${escapeHTML(p.name)}</span>`;
+            div.onclick = () => applyTheme(p.base);
+            grid.appendChild(div);
+        });
+    }
+
+    // ===========================================================
+    //  PAROLES SYNCHRONISÉES (lrclib.net — comme AppViewModel.kt)
+    // ===========================================================
+    let lyricsVisible = false;
+    let currentParsedLyrics = [];
+    let lyricsRequestId = 0;
+    let currentFpTab = 'queue';
+
+    // Panneau latéral du lecteur plein écran (File d'attente / Paroles),
+    // façon YouTube Music : un seul panneau, deux onglets.
+    function openFpTab(tab) {
+        currentFpTab = tab;
+        document.getElementById('fp-sidebar').classList.add('open');
+        document.getElementById('fpTabQueueBtn').classList.toggle('active', tab === 'queue');
+        document.getElementById('fpTabLyricsBtn').classList.toggle('active', tab === 'lyrics');
+        document.getElementById('fp-queue-tab').classList.toggle('active', tab === 'queue');
+        document.getElementById('fp-lyrics-tab').classList.toggle('active', tab === 'lyrics');
+        lyricsVisible = (tab === 'lyrics');
+        if (lyricsVisible && queue[currentIndex]) fetchLyrics(queue[currentIndex]);
+        syncFpHeaderButtons();
+    }
+    function toggleFpTab(tab) {
+        const sidebar = document.getElementById('fp-sidebar');
+        if (sidebar.classList.contains('open') && currentFpTab === tab) {
+            sidebar.classList.remove('open');
+            lyricsVisible = false;
+            syncFpHeaderButtons();
+        } else {
+            openFpTab(tab);
+        }
+    }
+    function syncFpHeaderButtons() {
+        const open = document.getElementById('fp-sidebar').classList.contains('open');
+        document.getElementById('lyricsBtn').classList.toggle('active', open && currentFpTab === 'lyrics');
+        document.getElementById('fpQueueBtn').classList.toggle('active', open && currentFpTab === 'queue');
+    }
+
+    function parseLrc(text) {
+        const lines = [];
+        const re = /\[(\d{2}):(\d{2})(?:[.:](\d{1,3}))?\](.*)/;
+        text.split('\n').forEach(line => {
+            const m = line.match(re);
+            if (!m) return;
+            const min = parseInt(m[1], 10), sec = parseInt(m[2], 10);
+            const ms  = m[3] ? parseInt(m[3].padEnd(3, '0'), 10) : 0;
+            const content = m[4].trim();
+            if (content) lines.push({ time: min * 60 + sec + ms / 1000, text: content });
+        });
+        lines.sort((a, b) => a.time - b.time);
+        return lines;
+    }
+
+    function renderLyricsRaw(lrc) {
+        const panel = document.getElementById('lyrics-content');
+        const parsed = parseLrc(lrc);
+        if (!parsed.length) {
+            panel.innerHTML = `<p class="lyrics-status" style="white-space:pre-line;">${escapeHTML(lrc)}</p>`;
+            currentParsedLyrics = [];
+            return;
+        }
+        currentParsedLyrics = parsed;
+        panel.innerHTML = parsed.map(l => `<p class="lyric-line" data-time="${l.time}" onclick="seekLyric(${l.time})">${escapeHTML(l.text)}</p>`).join('');
+    }
+
+    async function fetchLyrics(track) {
+        const panel = document.getElementById('lyrics-content');
+        currentParsedLyrics = [];
+        const myReq = ++lyricsRequestId;
+        const cacheKey = 'lyrics_' + track.id;
+        const cached = localStorage.getItem(cacheKey);
+        if (cached !== null) { renderLyricsRaw(cached); return; }
+
+        panel.innerHTML = '<p class="lyrics-status">Chargement des paroles…</p>';
+        try {
+            const url = 'https://lrclib.net/api/get?artist_name=' + encodeURIComponent(track.artist || '') + '&track_name=' + encodeURIComponent(track.title || '');
+            const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+            if (myReq !== lyricsRequestId) return;
+            if (res.status === 404) { panel.innerHTML = '<p class="lyrics-status">Aucune parole disponible.</p>'; return; }
+            if (!res.ok) throw new Error('http ' + res.status);
+            const json = await res.json();
+            const lrc = json.syncedLyrics || json.plainLyrics || '';
+            if (!lrc) { panel.innerHTML = '<p class="lyrics-status">Aucune parole disponible.</p>'; return; }
+            try { localStorage.setItem(cacheKey, lrc); } catch (e) {}
+            renderLyricsRaw(lrc);
+        } catch (e) {
+            if (myReq === lyricsRequestId) panel.innerHTML = '<p class="lyrics-status">Erreur lors du chargement des paroles.</p>';
+        }
+    }
+
+    function seekLyric(t) { audio.currentTime = t; if (audio.paused) togglePlay(); }
+
+    function updateLyricsHighlight() {
+        if (!lyricsVisible || !currentParsedLyrics.length) return;
+        const t = audio.currentTime;
+        let activeIdx = -1;
+        for (let i = 0; i < currentParsedLyrics.length; i++) {
+            if (currentParsedLyrics[i].time <= t) activeIdx = i; else break;
+        }
+        const lines = document.querySelectorAll('#lyrics-content .lyric-line');
+        lines.forEach((el, i) => el.classList.toggle('active', i === activeIdx));
+        if (activeIdx >= 0 && lines[activeIdx]) lines[activeIdx].scrollIntoView({ block: 'center', behavior: 'smooth' });
     }
 </script>
 
