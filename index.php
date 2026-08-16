@@ -519,19 +519,34 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
             --radius-sm: 8px; --radius-md: 16px; --radius-lg: 24px; --radius-full: 9999px;
         }
         * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-        body { margin:0; font-family:'Segoe UI',system-ui,-apple-system,sans-serif; background:var(--bg-dark); color:var(--text); padding-bottom:160px; overflow-x:hidden; }
+        body { margin:0; font-family:'Segoe UI',system-ui,-apple-system,sans-serif; background:var(--bg-dark); color:var(--text); padding-bottom:160px; padding-left:260px; padding-top:70px; overflow-x:hidden; transition:padding-left .3s cubic-bezier(.2,.8,.2,1); }
         ::-webkit-scrollbar { width:8px; } ::-webkit-scrollbar-track { background:var(--bg-dark); } ::-webkit-scrollbar-thumb { background:var(--border-color); border-radius:var(--radius-full); } ::-webkit-scrollbar-thumb:hover { background:var(--primary); }
 
-        header { display:flex; justify-content:space-between; padding:15px 30px; background:var(--header-bg); backdrop-filter:blur(15px); border-bottom:1px solid rgba(61,43,86,.5); align-items:center; position:sticky; top:0; z-index:100; height:70px; }
-        .logo { font-weight:800; font-size:1.6em; color:var(--accent); white-space:nowrap; letter-spacing:-1px; }
-        nav { display:flex; gap:25px; margin-left:40px; flex-grow:1; }
-        nav span { cursor:pointer; font-weight:600; color:var(--text-muted); transition:.3s; white-space:nowrap; padding:5px 10px; border-radius:var(--radius-sm); }
+        /* Barre latérale gauche façon YouTube Music (desktop) */
+        header { display:flex; flex-direction:column; align-items:stretch; justify-content:flex-start; gap:8px; padding:25px 16px; background:var(--header-bg); backdrop-filter:blur(15px); border-right:1px solid rgba(61,43,86,.5); border-bottom:none; position:fixed; top:70px; left:0; z-index:100; width:260px; height:calc(100vh - 70px); box-sizing:border-box; overflow-y:auto; overflow-x:hidden; transition:width .3s cubic-bezier(.2,.8,.2,1),padding .3s cubic-bezier(.2,.8,.2,1); }
+        nav { display:flex; flex-direction:column; gap:4px; margin-left:0; flex-grow:1; width:100%; }
+        nav span { display:flex; align-items:center; gap:14px; cursor:pointer; font-weight:600; color:var(--text-muted); transition:.3s; white-space:nowrap; padding:12px 14px; border-radius:var(--radius-sm); width:100%; box-sizing:border-box; }
+        .nav-icon { flex-shrink:0; }
+        .nav-icon-emoji { font-size:1.1em; line-height:1; width:20px; text-align:center; }
         nav span:hover { color:var(--text); background:rgba(255,255,255,.05); }
-        nav span.active { color:var(--accent); }
+        nav span.active { color:var(--accent); background:rgba(var(--accent-rgb),.1); }
         nav span.admin-nav-btn { color:#e67e22; font-weight:700; }
-        .header-actions { display:flex; gap:12px; align-items:center; }
+        .header-actions { display:flex; flex-wrap:wrap; gap:10px; align-items:center; width:100%; margin-top:auto; padding-top:20px; border-top:1px solid rgba(255,255,255,.05); }
+        .btn-icon { flex-shrink:0; }
 
-        .btn { padding:10px 20px; border-radius:var(--radius-full); border:none; cursor:pointer; font-weight:700; transition:all .2s ease; text-decoration:none; display:inline-flex; align-items:center; font-size:.9em; white-space:nowrap; justify-content:center; }
+        /* Repli de la barre latérale gauche : icônes seules, libellés masqués */
+        #sidebar-toggle { position:fixed; top:96px; left:246px; z-index:150; width:28px; height:28px; border-radius:50%; background:var(--elevated-bg); border:1px solid var(--border-color); color:var(--text-muted); cursor:pointer; display:flex; align-items:center; justify-content:center; transition:left .3s cubic-bezier(.2,.8,.2,1),transform .3s cubic-bezier(.2,.8,.2,1); }
+        #sidebar-toggle:hover { color:var(--text); border-color:var(--accent); }
+        body.sidebar-collapsed { padding-left:88px; }
+        body.sidebar-collapsed header { width:88px; padding-left:6px; padding-right:6px; }
+        body.sidebar-collapsed #sidebar-toggle { left:74px; transform:rotate(180deg); }
+        body.sidebar-collapsed nav span { flex-direction:column; justify-content:center; padding:10px 2px; gap:4px; }
+        body.sidebar-collapsed .nav-label { display:block; font-size:.62em; line-height:1.15; white-space:normal; text-align:center; }
+        body.sidebar-collapsed .header-actions { flex-direction:column; }
+        body.sidebar-collapsed .header-actions .btn-labeled { flex-direction:column; width:100%; height:auto; padding:8px 2px; border-radius:var(--radius-sm); gap:4px; }
+        body.sidebar-collapsed .btn-label { display:block; font-size:.62em; line-height:1.15; white-space:normal; text-align:center; }
+
+        .btn { padding:10px 20px; border-radius:var(--radius-full); border:none; cursor:pointer; font-weight:700; transition:all .2s ease; text-decoration:none; display:inline-flex; align-items:center; gap:8px; font-size:.9em; white-space:nowrap; justify-content:center; }
         .btn:active { transform:scale(.96); }
         .btn-primary { background:var(--primary); color:white; box-shadow:0 4px 15px rgba(var(--primary-rgb),.3); }
         .btn-primary:hover { background:#9b59b6; }
@@ -547,6 +562,13 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         .search-input { width:100%; height:50px; padding:0 25px; border-radius:50px; border:1px solid rgba(61,43,86,.5); background:var(--search-bg); color:var(--text); font-size:1em; outline:none; transition:all .3s; box-shadow:0 4px 10px rgba(0,0,0,.2); }
         .search-input:focus { border-color:var(--accent); background:var(--elevated-bg); box-shadow:0 0 0 3px rgba(var(--accent-rgb),.2); }
         .search-input::placeholder { color:var(--text-muted); }
+
+        /* Barre supérieure du contenu : nom de l'app + recherche, toujours visible (sticky) */
+        #content-topbar { position:fixed; top:0; left:0; width:100%; height:70px; z-index:110; box-sizing:border-box; display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:25px; padding:0 30px; background:var(--header-bg); backdrop-filter:blur(15px); border-bottom:1px solid rgba(61,43,86,.5); }
+        .topbar-appname { grid-column:1; justify-self:start; font-weight:800; font-size:1.3em; color:var(--accent); white-space:nowrap; letter-spacing:-.5px; flex-shrink:0; }
+        .topbar-search { grid-column:2; justify-self:center; width:480px; max-width:90vw; }
+        .topbar-search .search-input { height:44px; }
+
         .filter-wrapper { position:relative; width:50px; height:50px; flex-shrink:0; }
         .filter-icon-visual { width:100%; height:100%; background:var(--search-bg); border:1px solid rgba(61,43,86,.5); border-radius:50%; display:flex; align-items:center; justify-content:center; color:var(--accent); box-shadow:0 4px 10px rgba(0,0,0,.2); transition:.3s; }
         .filter-select-overlay { position:absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer; appearance:none; -webkit-appearance:none; z-index:10; }
@@ -560,6 +582,21 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         .track-index { color:var(--primary); font-weight:700; opacity:.7; }
         #load-more-trigger { height:40px; text-align:center; color:var(--text-muted); padding-top:15px; font-size:.9em; }
 
+        /* Carrousels d'accueil (Recommandé / Populaire / Pépites cachées) */
+        .carousel-section { margin-bottom:35px; }
+        .carousel-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:15px; gap:15px; }
+        .carousel-title { font-size:1.3em; font-weight:800; margin:0; border-left:5px solid var(--primary); padding-left:15px; border-radius:2px; }
+        .carousel-nav { display:flex; gap:8px; flex-shrink:0; }
+        .carousel-nav-btn { background:var(--bg-panel); border:1px solid rgba(61,43,86,.5); color:var(--text-muted); width:34px; height:34px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:.2s; }
+        .carousel-nav-btn:hover { color:var(--text); border-color:var(--accent); }
+        .carousel-track { display:flex; gap:16px; overflow-x:auto; scroll-snap-type:x proximity; scroll-behavior:smooth; padding:2px 2px 12px; scrollbar-width:thin; }
+        .carousel-card { flex:0 0 160px; width:160px; min-width:0; scroll-snap-align:start; cursor:pointer; }
+        .carousel-card .cc-cover-wrap { position:relative; }
+        .carousel-card img { width:160px; height:160px; border-radius:12px; object-fit:cover; box-shadow:0 8px 20px rgba(0,0,0,.3); transition:transform .2s; display:block; }
+        .carousel-card:hover img { transform:scale(1.04); }
+        .carousel-card .cc-title { font-weight:700; font-size:.9em; margin-top:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .carousel-card .cc-artist { font-size:.78em; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
         .playlist-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:25px; }
         .playlist-card { background:var(--bg-panel); border-radius:24px; padding:25px; border:1px solid rgba(61,43,86,.5); transition:transform .3s,box-shadow .3s; }
         .playlist-card:hover { transform:translateY(-5px); box-shadow:0 15px 30px rgba(0,0,0,.4); border-color:var(--primary); }
@@ -571,7 +608,8 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         .queue-item:hover { background:rgba(255,255,255,.05); }
         .close-queue-mobile { display:none; width:100%; margin-bottom:20px; background:var(--elevated-bg); border:none; color:var(--player-text); padding:12px; border-radius:var(--radius-sm); font-weight:bold; }
 
-        #player-bar { position:fixed; bottom:25px; left:50%; transform:translateX(-50%); width:94%; max-width:1000px; background:var(--player-bg); backdrop-filter:blur(20px) saturate(180%); padding:15px 30px; border-radius:20px; display:flex; align-items:center; z-index:1000; border:1px solid rgba(255,255,255,.1); box-shadow:0 15px 50px rgba(0,0,0,.6); }
+        #player-bar { position:fixed; bottom:25px; left:calc(50% + 130px); transform:translateX(-50%); width:94%; max-width:1000px; background:var(--player-bg); backdrop-filter:blur(20px) saturate(180%); padding:15px 30px; border-radius:20px; display:flex; align-items:center; z-index:1000; border:1px solid rgba(255,255,255,.1); box-shadow:0 15px 50px rgba(0,0,0,.6); transition:left .3s cubic-bezier(.2,.8,.2,1); }
+        body.sidebar-collapsed #player-bar { left:calc(50% + 44px); }
         .player-info { display:flex; align-items:center; gap:15px; width:25%; min-width:180px; }
         #player-cover { width:56px; height:56px; border-radius:12px; object-fit:cover; box-shadow:0 5px 15px rgba(0,0,0,.3); }
         .progress-container { flex-grow:1; margin:0 20px; }
@@ -636,9 +674,11 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
 
         /* Lecteur plein écran façon YouTube Music : pochette centrée à gauche,
            panneau "File d'attente / Paroles" à droite (toujours visible en
-           desktop), barre de contrôle pleine largeur en bas. */
-        #full-player { position:fixed; top:100%; left:0; width:100%; height:100%; background:radial-gradient(circle at top right,var(--fp-gradient-1),var(--fp-gradient-2)); z-index:5000; transition:top .4s cubic-bezier(.2,.8,.2,1); display:flex; flex-direction:column; box-sizing:border-box; color:var(--player-text); overflow:hidden; }
-        #full-player.active { top:0; }
+           desktop), barre de contrôle pleine largeur en bas. La barre latérale
+           reste visible à gauche (le lecteur ne recouvre que la zone de contenu). */
+        #full-player { position:fixed; top:100%; left:260px; width:calc(100% - 260px); height:calc(100% - 70px); background:radial-gradient(circle at top right,var(--fp-gradient-1),var(--fp-gradient-2)); z-index:5000; transition:top .4s cubic-bezier(.2,.8,.2,1),left .3s cubic-bezier(.2,.8,.2,1),width .3s cubic-bezier(.2,.8,.2,1); display:flex; flex-direction:column; box-sizing:border-box; color:var(--player-text); overflow:hidden; }
+        #full-player.active { top:70px; }
+        body.sidebar-collapsed #full-player { left:88px; width:calc(100% - 88px); }
 
         /* Fond ambiant : la pochette de la piste en cours, floutée et assombrie,
            façon Spotify/Apple Music — remplace le dégradé de thème fixe dès
@@ -698,14 +738,22 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         .adm-genre-item { display:flex; justify-content:space-between; align-items:center; padding:8px; background:rgba(0,0,0,.2); margin-bottom:5px; border-radius:8px; border:1px solid var(--border-color); }
 
         @media(max-width:768px){
-            body { padding-bottom:240px; }
-            header { display:flex; justify-content:center; align-items:center; height:60px; padding:10px 20px; position:relative; }
-            nav,.header-actions { display:none; }
-            .mobile-settings-btn { display:block; position:absolute; right:20px; background:none; border:none; padding:5px; cursor:pointer; }
-            .mobile-settings-btn svg { width:24px; height:24px; fill:var(--text-muted); }
+            body { padding-bottom:240px; padding-left:0; padding-top:0; }
+            header { display:none; }
+            #sidebar-toggle { display:none; }
+            .mobile-settings-btn { display:flex; order:2; flex-shrink:0; margin-left:auto; background:none; border:none; padding:5px; cursor:pointer; align-items:center; }
+            .mobile-settings-btn svg { width:22px; height:22px; fill:var(--text-muted); }
             main { padding:20px; width:100%; box-sizing:border-box; }
+            #content-topbar { position:sticky; top:0; left:auto; width:auto; height:auto; z-index:90; display:flex; flex-wrap:wrap; padding:12px 15px; gap:10px; }
+            .topbar-appname { order:1; font-size:1.1em; }
+            .topbar-search { order:3; width:auto; flex:1 1 100%; max-width:none; }
+            #full-player { left:0; width:100%; height:100%; }
+            #full-player.active { top:0; }
             .track-item { grid-template-columns:50px 1fr auto; padding:12px 10px; gap:12px; }
             .track-index { display:none; }
+            .carousel-card { flex-basis:120px; width:120px; }
+            .carousel-card img { width:120px; height:120px; }
+            .carousel-nav { display:none; }
             #player-bar { width:calc(100% - 20px); max-width:100%; bottom:80px; left:50%; transform:translateX(-50%); border-radius:16px; flex-direction:column; padding:12px 15px; box-sizing:border-box; }
             .player-info { width:100%; justify-content:flex-start; margin-bottom:5px; }
             .progress-container { width:100%; margin:8px 0 12px 0; }
@@ -749,30 +797,54 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
 <?php else: ?>
 
 <header>
-    <div class="logo"><?php echo htmlspecialchars($site_name); ?> <?php if ($is_admin) echo "<small style='color:gold;font-size:10px;vertical-align:middle;'>ADMIN</small>"; ?></div>
     <nav>
-        <span id="nav-accueil" class="active" onclick="showSection('accueil')">Bibliothèque</span>
-        <span id="nav-playlists" onclick="showSection('playlists')">Playlists</span>
+        <span id="nav-accueil" class="active" onclick="showSection('accueil')" title="Bibliothèque">
+            <svg class="nav-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+            <span class="nav-label">Bibliothèque</span>
+        </span>
+        <span id="nav-playlists" onclick="showSection('playlists')" title="Playlists">
+            <svg class="nav-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"/></svg>
+            <span class="nav-label">Playlists</span>
+        </span>
         <?php if ($is_admin): ?>
-            <span class="admin-nav-btn" onclick="openModal('adminPanelModal')">⚙️ Panel Admin</span>
+            <span class="admin-nav-btn" onclick="openModal('adminPanelModal')" title="Panel Admin">
+                <span class="nav-icon nav-icon-emoji">⚙️</span>
+                <span class="nav-label">Panel Admin</span>
+            </span>
         <?php endif; ?>
     </nav>
     <div class="header-actions">
-        <button class="btn btn-outline" onclick="toggleQueue()">File</button>
-        <button class="btn btn-primary" onclick="openCreateModal()">+ Mix</button>
-        <button class="btn btn-outline" onclick="openModal('uploadModal')">Upload</button>
-        <button class="btn btn-outline" onclick="openModal('equalizerModal');renderEqSliders();" title="Égaliseur" style="padding:10px;border-radius:50%;">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M4 10h3v10H4V10zm6.5-6h3v16h-3V4zM17 14h3v6h-3v-6z"/></svg>
+        <button class="btn btn-primary btn-labeled" onclick="openCreateModal()" title="+ Mix">
+            <svg class="btn-icon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+            <span class="btn-label">+ Mix</span>
         </button>
-        <button class="btn btn-outline" onclick="openModal('settingsModal')" style="padding:10px;border-radius:50%;">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M19.4 13c0-.3.1-.6.1-1s0-.7-.1-1l2.1-1.7c.2-.2.2-.4.1-.6l-2-3.5c-.1-.2-.3-.3-.6-.2l-2.5 1c-.5-.4-1.1-.7-1.7-1l-.4-2.7c0-.2-.2-.4-.5-.4h-4c-.3 0-.5.2-.5.4l-.4 2.7c-.6.2-1.2.6-1.7 1l-2.5-1c-.2-.1-.5 0-.6.2l-2 3.5c-.1.2-.1.5.1.6L4.6 11c-.1.3-.1.6-.1 1s0 .7.1 1l-2.1 1.7c-.2.2-.2.4-.1.6l2 3.5c.1.2.3.3.6.2l2.5-1c.5.4 1.1.7 1.7 1l.4 2.7c0 .2.2.4.5.4h4c.3 0 .5-.2.5-.4l.4-2.7c.6-.2 1.2-.6 1.7-1l2.5 1c.2.1.5 0 .6-.2l2-3.5c.1-.2.1-.5-.1-.6L19.4 13zM12 15.5c-1.9 0-3.5-1.6-3.5-3.5s1.6-3.5 3.5-3.5 3.5 1.6 3.5 3.5-1.6 3.5-3.5 3.5z"/></svg>
+        <button class="btn btn-outline btn-labeled" onclick="openModal('uploadModal')" title="Upload">
+            <svg class="btn-icon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>
+            <span class="btn-label">Upload</span>
         </button>
-        <a href="?logout=1" class="btn" style="color:var(--text-muted);">Sortir</a>
+        <button class="btn btn-outline btn-labeled" onclick="openModal('settingsModal')" title="Paramètres">
+            <svg class="btn-icon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M19.4 13c0-.3.1-.6.1-1s0-.7-.1-1l2.1-1.7c.2-.2.2-.4.1-.6l-2-3.5c-.1-.2-.3-.3-.6-.2l-2.5 1c-.5-.4-1.1-.7-1.7-1l-.4-2.7c0-.2-.2-.4-.5-.4h-4c-.3 0-.5.2-.5.4l-.4 2.7c-.6.2-1.2.6-1.7 1l-2.5-1c-.2-.1-.5 0-.6.2l-2 3.5c-.1.2-.1.5.1.6L4.6 11c-.1.3-.1.6-.1 1s0 .7.1 1l-2.1 1.7c-.2.2-.2.4-.1.6l2 3.5c.1.2.3.3.6.2l2.5-1c.5.4 1.1.7 1.7 1l.4 2.7c0 .2.2.4.5.4h4c.3 0 .5-.2.5-.4l.4-2.7c.6-.2 1.2-.6 1.7-1l2.5 1c.2.1.5 0 .6-.2l2-3.5c.1-.2.1-.5-.1-.6L19.4 13zM12 15.5c-1.9 0-3.5-1.6-3.5-3.5s1.6-3.5 3.5-3.5 3.5 1.6 3.5 3.5-1.6 3.5-3.5 3.5z"/></svg>
+            <span class="btn-label">Paramètres</span>
+        </button>
+        <a href="?logout=1" class="btn btn-labeled" style="color:var(--text-muted);" title="Sortir">
+            <svg class="btn-icon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
+            <span class="btn-label">Sortir</span>
+        </a>
     </div>
-    <button class="mobile-settings-btn" onclick="openModal('settingsModal')">
-        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M19.4 13c0-.3.1-.6.1-1s0-.7-.1-1l2.1-1.7c.2-.2.2-.4.1-.6l-2-3.5c-.1-.2-.3-.3-.6-.2l-2.5 1c-.5-.4-1.1-.7-1.7-1l-.4-2.7c0-.2-.2-.4-.5-.4h-4c-.3 0-.5.2-.5.4l-.4 2.7c-.6.2-1.2.6-1.7 1l-2.5-1c-.2-.1-.5 0-.6.2l-2 3.5c-.1.2-.1.5.1.6L4.6 11c-.1.3-.1.6-.1 1s0 .7.1 1l-2.1 1.7c-.2.2-.2.4-.1.6l2 3.5c.1.2.3.3.6.2l2.5-1c.5.4 1.1.7 1.7 1l.4 2.7c0 .2.2.4.5.4h4c.3 0 .5-.2.5-.4l.4-2.7c.6-.2 1.2-.6 1.7-1l2.5 1c.2.1.5 0 .6-.2l2-3.5c.1-.2.1-.5-.1-.6L19.4 13zM12 15.5c-1.9 0-3.5-1.6-3.5-3.5s1.6-3.5 3.5-3.5 3.5 1.6 3.5 3.5-1.6 3.5-3.5 3.5z"/></svg>
-    </button>
 </header>
+<button id="sidebar-toggle" onclick="toggleSidebar()" title="Réduire/agrandir le menu">
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+</button>
+
+<div id="content-topbar">
+    <div class="topbar-appname"><?php echo htmlspecialchars($site_name); ?></div>
+    <button class="mobile-settings-btn" onclick="openModal('settingsModal')">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M19.4 13c0-.3.1-.6.1-1s0-.7-.1-1l2.1-1.7c.2-.2.2-.4.1-.6l-2-3.5c-.1-.2-.3-.3-.6-.2l-2.5 1c-.5-.4-1.1-.7-1.7-1l-.4-2.7c0-.2-.2-.4-.5-.4h-4c-.3 0-.5.2-.5.4l-.4 2.7c-.6.2-1.2.6-1.7 1l-2.5-1c-.2-.1-.5 0-.6.2l-2 3.5c-.1.2-.1.5.1.6L4.6 11c-.1.3-.1.6-.1 1s0 .7.1 1l-2.1 1.7c-.2.2-.2.4-.1.6l2 3.5c.1.2.3.3.6.2l2.5-1c.5.4 1.1.7 1.7 1l.4 2.7c0 .2.2.4.5.4h4c.3 0 .5-.2.5-.4l.4-2.7c.6-.2 1.2-.6 1.7-1l2.5 1c.2.1.5 0 .6-.2l2-3.5c.1-.2.1-.5-.1-.6L19.4 13zM12 15.5c-1.9 0-3.5-1.6-3.5-3.5s1.6-3.5 3.5-3.5 3.5 1.6 3.5 3.5-1.6 3.5-3.5 3.5z"/></svg>
+    </button>
+    <div class="topbar-search">
+        <input type="text" id="searchInput" class="search-input" placeholder="Rechercher titre, artiste..." onkeyup="onSearchInput()">
+    </div>
+</div>
 
 <?php if ($is_admin): ?>
 <div id="adminPanelModal" class="modal"><div class="modal-content">
@@ -854,12 +926,10 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
 </div>
 
 <main id="accueil">
+    <div id="home-carousels"></div>
     <div class="controls-container">
         <h2 class="section-title">Toutes les pistes</h2>
-        <div class="search-row">
-            <div class="search-container">
-                <input type="text" id="searchInput" class="search-input" placeholder="Rechercher titre, artiste..." onkeyup="onSearchInput()">
-            </div>
+        <div class="search-row" style="justify-content:flex-end;">
             <div class="filter-wrapper" title="Trier">
                 <div class="filter-icon-visual">
                     <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M3 4c0-.55.45-1 1-1h10c.55 0 1 .45 1 1v1.5c0 .28-.11.53-.3.71L10 10.9v5.2c0 .28-.11.53-.29.71l-2 2c-.18.18-.43.29-.71.29s-.53-.11-.71-.29A.996.996 0 0 1 6 18.1v-7.2L3.3 6.21A.996.996 0 0 1 3 5.5V4z"/><rect x="16" y="5" width="6" height="2" rx="1"/><rect x="16" y="11" width="6" height="2" rx="1"/><rect x="16" y="17" width="6" height="2" rx="1"/></svg>
@@ -1201,7 +1271,10 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
     }
 
     let searchTimeout;
-    function onSearchInput() { clearTimeout(searchTimeout); searchTimeout = setTimeout(filterAndSortTracks, 250); }
+    function onSearchInput() {
+        if (currentSection !== 'accueil' && document.getElementById('searchInput').value.trim() !== '') showSection('accueil');
+        clearTimeout(searchTimeout); searchTimeout = setTimeout(filterAndSortTracks, 250);
+    }
 
     function updateUrl() {
         const params = new URLSearchParams();
@@ -1216,6 +1289,7 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         else { hiddenGenres = hiddenGenres.filter(g => g !== genre); }
         localStorage.setItem('hiddenGenres', JSON.stringify(hiddenGenres));
         filterAndSortTracks();
+        renderHomeCarousels();
     }
 
     function renderTracksChunk() {
@@ -1276,6 +1350,59 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         CURRENT_VIEW_DATA = filtered; renderedCount = 0; renderTracksChunk();
     }
 
+    function renderCarouselSection(id, title, tracks) {
+        if (!tracks.length) return '';
+        const cardsHtml = tracks.map(t => {
+            const safeTitle  = escapeHTML(t.title);
+            const safeArtist = escapeHTML(t.artist || 'Artiste inconnu');
+            const safeCover  = escapeHTML(t.cover_url);
+            return `<div class="carousel-card" onclick="playTrackById(${t.id})">
+                <div class="cc-cover-wrap"><img src="${safeCover}" loading="lazy" alt="" onerror="this.onerror=null;this.src='covers/default.png'"></div>
+                <div class="cc-title">${safeTitle}</div>
+                <div class="cc-artist">${safeArtist}</div>
+            </div>`;
+        }).join('');
+        return `<section class="carousel-section">
+            <div class="carousel-header">
+                <h3 class="carousel-title">${title}</h3>
+                <div class="carousel-nav">
+                    <button class="carousel-nav-btn" onclick="scrollCarousel('${id}',-1)" title="Précédent">‹</button>
+                    <button class="carousel-nav-btn" onclick="scrollCarousel('${id}',1)" title="Suivant">›</button>
+                </div>
+            </div>
+            <div class="carousel-track" id="${id}">${cardsHtml}</div>
+        </section>`;
+    }
+
+    function scrollCarousel(id, dir) {
+        const track = document.getElementById(id);
+        if (track) track.scrollBy({ left: dir * (track.clientWidth * 0.8), behavior: 'smooth' });
+    }
+
+    function renderHomeCarousels() {
+        const container = document.getElementById('home-carousels');
+        if (!container) return;
+        const visible = ALL_MUSIC_DATA.filter(t => !hiddenGenres.includes(t.genre || 'Autre'));
+        if (!visible.length) { container.innerHTML = ''; return; }
+
+        // Populaire : déjà trié par play_count DESC côté API.
+        const popular = visible.slice(0, 15);
+
+        // Pépites cachées : sélection aléatoire parmi les 30 pistes les moins écoutées.
+        const leastPopularPool = [...visible]
+            .sort((a, b) => (a.play_count||0) - (b.play_count||0))
+            .slice(0, 30);
+        const hiddenGems = shuffleArray([...leastPopularPool]).slice(0, 15);
+
+        // Recommandé : échantillon aléatoire de toute la bibliothèque.
+        const recommended = shuffleArray([...visible]).slice(0, 15);
+
+        container.innerHTML =
+            renderCarouselSection('carousel-recommended', 'Recommandé pour vous', recommended) +
+            renderCarouselSection('carousel-popular', 'Populaire', popular) +
+            renderCarouselSection('carousel-hidden-gems', 'Pépites cachées', hiddenGems);
+    }
+
     const _observer = new IntersectionObserver(entries => {
         if (entries[0].isIntersecting && renderedCount < CURRENT_VIEW_DATA.length) renderTracksChunk();
     }, { rootMargin: '200px' });
@@ -1288,6 +1415,7 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         });
         _observer.observe(document.getElementById('load-more-trigger'));
         filterAndSortTracks();
+        renderHomeCarousels();
         const p = new URLSearchParams(window.location.search);
         if (p.get('page')) showSection(p.get('page'), false);
         if (p.get('list')) currentPlaylistId = p.get('list');
@@ -1310,6 +1438,11 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         return Math.floor(s/60) + ':' + String(Math.floor(s%60)).padStart(2,'0');
     }
     function toggleQueue() { queuePanel.classList.toggle('open'); }
+    function toggleSidebar() {
+        const collapsed = document.body.classList.toggle('sidebar-collapsed');
+        localStorage.setItem('sidebar_collapsed', collapsed ? '1' : '0');
+    }
+    if (localStorage.getItem('sidebar_collapsed') === '1') document.body.classList.add('sidebar-collapsed');
     function openSmartPlayer() {
         document.getElementById('full-player').classList.add('active');
         document.body.style.overflow = 'hidden';
