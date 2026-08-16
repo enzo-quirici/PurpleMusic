@@ -590,7 +590,6 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         #masterPlay:hover { transform:scale(1.1); box-shadow:0 0 30px rgba(255,255,255,.5); }
         #masterPlay svg { fill:#0f0c1d; width:22px; height:22px; }
         .volume-container { display:flex; align-items:center; gap:8px; width:110px; margin-left:10px; }
-        .fp-volume-container { width:100%; margin:15px 0 25px 0; justify-content:center; }
         input[type=range].vol-slider { -webkit-appearance:none; width:100%; height:4px; background:linear-gradient(90deg,var(--accent) 100%,rgba(255,255,255,.2) 100%); border-radius:5px; outline:none; cursor:pointer; }
         input[type=range].vol-slider::-webkit-slider-thumb { -webkit-appearance:none; width:12px; height:12px; background:#fff; border-radius:50%; cursor:pointer; transition:.2s; }
 
@@ -634,32 +633,60 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         .lyric-line:hover { color:rgba(255,255,255,.8); }
         .lyric-line.active { color:var(--player-text); font-size:1.25em; }
         .lyrics-status { color:rgba(255,255,255,.6); margin-top:20px; padding:0 10px; text-align:center; }
-        .fp-btn.active { background:rgba(var(--primary-rgb),.3); }
 
-        #full-player { position:fixed; top:100%; left:0; width:100%; height:100%; background:radial-gradient(circle at top right,var(--fp-gradient-1),var(--fp-gradient-2)); z-index:5000; transition:top .4s cubic-bezier(.2,.8,.2,1); display:flex; flex-direction:row; box-sizing:border-box; color:var(--player-text); overflow:hidden; }
+        /* Lecteur plein écran façon YouTube Music : pochette centrée à gauche,
+           panneau "File d'attente / Paroles" à droite (toujours visible en
+           desktop), barre de contrôle pleine largeur en bas. */
+        #full-player { position:fixed; top:100%; left:0; width:100%; height:100%; background:radial-gradient(circle at top right,var(--fp-gradient-1),var(--fp-gradient-2)); z-index:5000; transition:top .4s cubic-bezier(.2,.8,.2,1); display:flex; flex-direction:column; box-sizing:border-box; color:var(--player-text); overflow:hidden; }
         #full-player.active { top:0; }
-        .fp-main { flex:1; min-width:0; display:flex; flex-direction:column; justify-content:space-between; padding:30px; box-sizing:border-box; }
-        .fp-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
-        .fp-btn { background:none; border:none; cursor:pointer; padding:10px; border-radius:50%; flex-shrink:0; }
-        .fp-art-container { flex-grow:1; display:flex; align-items:center; justify-content:center; margin:20px 0; max-height:45vh; }
-        #fp-cover { width:100%; height:auto; aspect-ratio:1/1; object-fit:cover; border-radius:20px; box-shadow:0 20px 60px rgba(0,0,0,.5); max-width:350px; }
-        .fp-info-area { text-align:left; margin-bottom:30px; padding:0 10px; overflow:hidden; }
-        #fp-title { font-size:1.8em; font-weight:800; margin-bottom:5px; white-space:nowrap; overflow:hidden; width:100%; position:relative; mask-image:linear-gradient(to right,transparent 0%,black 5%,black 95%,transparent 100%); -webkit-mask-image:linear-gradient(to right,transparent 0%,black 5%,black 95%,transparent 100%); }
+
+        /* Fond ambiant : la pochette de la piste en cours, floutée et assombrie,
+           façon Spotify/Apple Music — remplace le dégradé de thème fixe dès
+           qu'une pochette est chargée. */
+        #fp-bg { position:absolute; inset:-60px; z-index:0; overflow:hidden; }
+        #fp-bg-img { width:100%; height:100%; object-fit:cover; filter:blur(50px) saturate(1.4) brightness(.55); transform:scale(1.15); opacity:0; transition:opacity .8s ease; }
+        #fp-bg-img.loaded { opacity:1; }
+        #fp-bg::after { content:''; position:absolute; inset:0; background:rgba(0,0,0,.2); }
+
+        .fp-close-btn, .fp-mobile-tabs-toggle .fp-btn { background:rgba(0,0,0,.3); border:none; cursor:pointer; padding:10px; border-radius:50%; display:flex; }
+        .fp-close-btn { position:absolute; top:20px; left:20px; z-index:10; }
+        .fp-mobile-tabs-toggle { display:none; position:absolute; top:20px; right:20px; z-index:10; gap:8px; }
+        .fp-btn.active { background:rgba(var(--primary-rgb),.6); }
+        .fp-body, .fp-bottombar { position:relative; z-index:1; }
+
+        .fp-body { flex:1; min-height:0; display:flex; flex-direction:row; }
+        .fp-main { flex:1; min-width:0; display:flex; align-items:center; justify-content:center; padding:40px; box-sizing:border-box; }
+        .fp-art-container { width:100%; max-width:560px; }
+        #fp-cover { width:100%; height:auto; aspect-ratio:1/1; object-fit:cover; border-radius:8px; box-shadow:0 20px 60px rgba(0,0,0,.5); display:block; }
+
+        #fp-sidebar { width:400px; flex-shrink:0; background:rgba(0,0,0,.25); backdrop-filter:blur(20px); border-left:1px solid rgba(255,255,255,.08); box-sizing:border-box; overflow:hidden; display:flex; flex-direction:column; transition:width .3s cubic-bezier(.2,.8,.2,1); }
+        .fp-sidebar-tabs { display:flex; align-items:center; flex-shrink:0; border-bottom:1px solid rgba(255,255,255,.08); }
+        .fp-tab-btn { flex:1; background:none; border:none; padding:20px 10px; color:var(--player-text); opacity:.55; cursor:pointer; font-weight:700; font-size:.75em; letter-spacing:1px; text-transform:uppercase; white-space:nowrap; border-bottom:2px solid transparent; transition:.2s; }
+        .fp-tab-btn:hover { opacity:.85; }
+        .fp-tab-btn.active { opacity:1; border-bottom-color:var(--accent); color:var(--accent); }
+        .fp-sidebar-close { display:none; background:none; border:none; cursor:pointer; padding:0 14px; opacity:.6; flex-shrink:0; }
+        .fp-sidebar-close:hover { opacity:1; }
+        .fp-sidebar-content { flex:1; overflow-y:auto; padding:15px 10px; }
+        .fp-tab-pane { display:none; }
+        .fp-tab-pane.active { display:block; }
+
+        /* Barre de contrôle pleine largeur en bas (façon YouTube Music) */
+        .fp-bottombar { flex-shrink:0; display:flex; align-items:center; gap:24px; padding:12px 24px; border-top:1px solid rgba(255,255,255,.08); background:rgba(0,0,0,.2); box-sizing:border-box; }
+        .fp-bb-track { display:flex; align-items:center; gap:12px; width:260px; flex-shrink:0; overflow:hidden; }
+        .fp-bb-track img { width:48px; height:48px; border-radius:8px; object-fit:cover; flex-shrink:0; box-shadow:0 4px 10px rgba(0,0,0,.3); }
+        .fp-bb-info { overflow:hidden; }
+        #fp-title { font-size:.95em; font-weight:700; white-space:nowrap; overflow:hidden; position:relative; mask-image:linear-gradient(to right,transparent 0%,black 5%,black 95%,transparent 100%); -webkit-mask-image:linear-gradient(to right,transparent 0%,black 5%,black 95%,transparent 100%); }
         #fp-title span { display:inline-block; }
         .scrolling-active { padding-left:100%; animation:marquee 12s linear infinite; }
         @keyframes marquee { 0%{transform:translate(0,0)} 100%{transform:translate(-100%,0)} }
-        .fp-controls { display:flex; justify-content:space-between; align-items:center; padding:0 10px 20px 10px; width:100%; box-sizing:border-box; }
-
-        /* Panneau latéral "File d'attente / Paroles" (façon YouTube Music) */
-        #fp-sidebar { width:0; flex-shrink:0; background:rgba(0,0,0,.25); backdrop-filter:blur(20px); border-left:1px solid rgba(255,255,255,.08); box-sizing:border-box; overflow:hidden; display:flex; flex-direction:column; transition:width .3s cubic-bezier(.2,.8,.2,1); }
-        #fp-sidebar.open { width:380px; }
-        .fp-sidebar-tabs { display:flex; flex-shrink:0; border-bottom:1px solid rgba(255,255,255,.08); }
-        .fp-tab-btn { flex:1; background:none; border:none; padding:20px 10px; color:var(--player-text); opacity:.55; cursor:pointer; font-weight:700; font-size:.8em; letter-spacing:.5px; white-space:nowrap; border-bottom:2px solid transparent; transition:.2s; }
-        .fp-tab-btn:hover { opacity:.85; }
-        .fp-tab-btn.active { opacity:1; border-bottom-color:var(--accent); color:var(--accent); }
-        .fp-sidebar-content { flex:1; overflow-y:auto; padding:15px 20px; min-width:380px; }
-        .fp-tab-pane { display:none; }
-        .fp-tab-pane.active { display:block; }
+        #fp-artist { font-size:.8em; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .fp-bb-center { flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; gap:6px; }
+        .fp-bb-transport { display:flex; align-items:center; gap:18px; }
+        .fp-bb-transport .control-btn svg { width:20px; height:20px; }
+        .fp-bb-play svg { width:26px !important; height:26px !important; }
+        .fp-bb-progress { display:flex; align-items:center; gap:10px; width:100%; max-width:600px; font-size:.72em; color:var(--text-muted); font-family:monospace; }
+        .fp-bb-progress .progress-bg { flex:1; height:4px; }
+        .fp-bb-right { width:160px; flex-shrink:0; justify-content:flex-end; }
 
         #mobile-bottom-nav { display:none; position:fixed; bottom:0; left:0; width:100%; background:var(--mob-nav-bg); backdrop-filter:blur(15px); border-top:1px solid rgba(255,255,255,.05); z-index:3000; justify-content:space-around; padding:10px 0 15px 0; height:70px; box-sizing:border-box; }
         .mob-nav-item { display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--text-muted); font-size:.7em; background:none; border:none; gap:5px; font-weight:600; width:20%; }
@@ -691,10 +718,16 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
             .settings-grid { grid-template-columns:1fr; }
             #mobile-bottom-nav { display:flex; }
             .extended-color-grid { grid-template-columns:1fr; }
-            #full-player { flex-direction:column; }
-            #fp-sidebar { position:absolute; inset:0; width:0; height:100%; z-index:10; border-left:none; }
+            .fp-mobile-tabs-toggle { display:flex; }
+            .fp-art-container { max-width:280px; }
+            .fp-main { padding:20px; }
+            #fp-sidebar { position:absolute; inset:0; width:0; height:100%; z-index:20; border-left:none; transition:width .3s cubic-bezier(.2,.8,.2,1); }
             #fp-sidebar.open { width:100%; }
-            .fp-sidebar-content { min-width:0; }
+            .fp-sidebar-close { display:block; }
+            .fp-bottombar { flex-wrap:wrap; padding:10px 15px 16px; gap:10px; }
+            .fp-bb-track { width:100%; }
+            .fp-bb-center { order:3; width:100%; }
+            .fp-bb-right { display:none; }
         }
     </style>
 </head>
@@ -1027,50 +1060,57 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
 </div>
 
 <div id="full-player">
-    <div class="fp-main">
-        <div class="fp-header">
-            <button class="fp-btn" onclick="closeFullPlayer()"><svg viewBox="0 0 24 24" style="width:30px;height:30px;fill:var(--player-text);"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg></button>
-            <span style="font-size:.8em;letter-spacing:1px;color:var(--text-muted);font-weight:600;">LECTURE EN COURS</span>
-            <div style="display:flex;gap:6px;">
-                <button class="fp-btn" id="lyricsBtn" onclick="toggleFpTab('lyrics')" title="Paroles"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:var(--player-text);"><path d="M20 2H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h4l4 4 4-4h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h9v2H6V9zm6 5H6v-2h6v2zm5-6H6V6h11v2z"/></svg></button>
-                <button class="fp-btn" id="fpQueueBtn" onclick="toggleFpTab('queue')" title="File d'attente"><svg viewBox="0 0 24 24" style="width:24px;height:24px;fill:var(--player-text);"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg></button>
+    <div id="fp-bg"><img id="fp-bg-img" alt=""></div>
+    <button class="fp-close-btn" onclick="closeFullPlayer()" title="Réduire"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:var(--player-text);"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg></button>
+    <div class="fp-mobile-tabs-toggle">
+        <button class="fp-btn" id="lyricsBtn" onclick="toggleFpTab('lyrics')" title="Paroles"><svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:var(--player-text);"><path d="M20 2H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h4l4 4 4-4h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h9v2H6V9zm6 5H6v-2h6v2zm5-6H6V6h11v2z"/></svg></button>
+        <button class="fp-btn" id="fpQueueBtn" onclick="toggleFpTab('queue')" title="File d'attente"><svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:var(--player-text);"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg></button>
+    </div>
+    <div class="fp-body">
+        <div class="fp-main">
+            <div class="fp-art-container"><img src="covers/<?php echo htmlspecialchars($default_cover); ?>" id="fp-cover" loading="lazy"></div>
+        </div>
+        <div id="fp-sidebar">
+            <div class="fp-sidebar-tabs">
+                <button class="fp-tab-btn active" id="fpTabQueueBtn" onclick="openFpTab('queue')">File d'attente</button>
+                <button class="fp-tab-btn" id="fpTabLyricsBtn" onclick="openFpTab('lyrics')">Paroles</button>
+                <button class="fp-sidebar-close" onclick="toggleFpTab(currentFpTab)" title="Fermer"><svg viewBox="0 0 24 24" width="18" height="18" fill="var(--player-text)"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
             </div>
-        </div>
-        <div class="fp-art-container"><img src="covers/<?php echo htmlspecialchars($default_cover); ?>" id="fp-cover" loading="lazy"></div>
-        <div class="fp-info-area">
-            <div id="fp-title"><span id="fp-title-text">Titre</span></div>
-            <div id="fp-artist" style="font-size:1.1em;color:var(--accent);font-weight:500;">Artiste</div>
-        </div>
-        <div class="fp-progress-wrapper">
-            <div class="progress-bg" id="fp-progress-area" style="height:6px;background:rgba(255,255,255,.2);"><div class="progress-fill" id="fp-progress-bar" style="background:linear-gradient(90deg,var(--primary),var(--accent));"></div></div>
-            <div style="display:flex;justify-content:space-between;margin-top:10px;font-size:.85em;color:var(--text-muted);font-family:monospace;"><span id="fp-curr-time">0:00</span><span id="fp-total-time">0:00</span></div>
-            <div class="volume-container fp-volume-container">
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="var(--player-text)"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
-                <input type="range" id="mobile-vol" class="vol-slider" min="0" max="1" step="0.01" value="1">
+            <div class="fp-sidebar-content">
+                <div id="fp-queue-tab" class="fp-tab-pane active">
+                    <div id="fp-queue-list"><p style="color:var(--text-muted);">File vide...</p></div>
+                </div>
+                <div id="fp-lyrics-tab" class="fp-tab-pane">
+                    <div id="lyrics-content"><p class="lyrics-status">Aucune piste en cours.</p></div>
+                </div>
             </div>
-        </div>
-        <div class="fp-controls">
-            <button class="control-btn" id="fp-shuffleBtn" onclick="toggleShuffle()" style="transform:scale(1.2);"><svg viewBox="0 0 24 24"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg></button>
-            <button class="control-btn" onclick="prevTrack()" style="transform:scale(1.5);"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button>
-            <button id="fp-masterPlay" onclick="togglePlay()" style="background:white;border-radius:50%;width:75px;height:75px;border:none;display:flex;align-items:center;justify-content:center;box-shadow:0 0 40px rgba(255,255,255,.2);">
-                <svg viewBox="0 0 24 24" style="width:35px;height:35px;fill:black;margin-left:4px;"><path d="M8 5v14l11-7z"/></svg>
-            </button>
-            <button class="control-btn" onclick="nextTrack()" style="transform:scale(1.5);"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
-            <button class="control-btn" id="fp-loopBtn" onclick="toggleLoop()" style="transform:scale(1.2);position:relative;" title="Lecture normale"><svg viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg><span class="loop-badge">1</span></button>
         </div>
     </div>
-    <div id="fp-sidebar">
-        <div class="fp-sidebar-tabs">
-            <button class="fp-tab-btn active" id="fpTabQueueBtn" onclick="openFpTab('queue')">File d'attente</button>
-            <button class="fp-tab-btn" id="fpTabLyricsBtn" onclick="openFpTab('lyrics')">Paroles</button>
+    <div class="fp-bottombar">
+        <div class="fp-bb-track">
+            <img id="fp-bb-cover" src="covers/<?php echo htmlspecialchars($default_cover); ?>" loading="lazy">
+            <div class="fp-bb-info">
+                <div id="fp-title"><span id="fp-title-text">Titre</span></div>
+                <div id="fp-artist">Artiste</div>
+            </div>
         </div>
-        <div class="fp-sidebar-content">
-            <div id="fp-queue-tab" class="fp-tab-pane active">
-                <div id="fp-queue-list"><p style="color:var(--text-muted);">File vide...</p></div>
+        <div class="fp-bb-center">
+            <div class="fp-bb-transport">
+                <button class="control-btn" id="fp-shuffleBtn" onclick="toggleShuffle()"><svg viewBox="0 0 24 24"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg></button>
+                <button class="control-btn" onclick="prevTrack()"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button>
+                <button class="control-btn fp-bb-play" id="fp-masterPlay" onclick="togglePlay()"><svg viewBox="0 0 24 24" style="margin-left:2px;"><path d="M8 5v14l11-7z"/></svg></button>
+                <button class="control-btn" onclick="nextTrack()"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
+                <button class="control-btn" id="fp-loopBtn" onclick="toggleLoop()" style="position:relative;" title="Lecture normale"><svg viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg><span class="loop-badge">1</span></button>
             </div>
-            <div id="fp-lyrics-tab" class="fp-tab-pane">
-                <div id="lyrics-content"><p class="lyrics-status">Aucune piste en cours.</p></div>
+            <div class="fp-bb-progress">
+                <span id="fp-curr-time">0:00</span>
+                <div class="progress-bg" id="fp-progress-area"><div class="progress-fill" id="fp-progress-bar" style="background:linear-gradient(90deg,var(--primary),var(--accent));"></div></div>
+                <span id="fp-total-time">0:00</span>
             </div>
+        </div>
+        <div class="volume-container fp-bb-right">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="var(--player-text)"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+            <input type="range" id="mobile-vol" class="vol-slider" min="0" max="1" step="0.01" value="1">
         </div>
     </div>
 </div>
@@ -1340,6 +1380,11 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         fpTitle.innerHTML = `<span id="fp-title-text">${escapeHTML(track.title)}</span>`;
         document.getElementById('fp-artist').innerText = track.artist || 'Artiste inconnu';
         document.getElementById('fp-cover').src = track.cover_url;
+        document.getElementById('fp-bb-cover').src = track.cover_url;
+        const bgImg = document.getElementById('fp-bg-img');
+        bgImg.classList.remove('loaded');
+        bgImg.onload = () => bgImg.classList.add('loaded');
+        bgImg.src = track.cover_url;
 
         const titleSpan = document.getElementById('fp-title-text');
         titleSpan.classList.remove('scrolling-active');
@@ -1357,17 +1402,15 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         }
         updateUrl();
         if (lyricsVisible) fetchLyrics(track); else { currentParsedLyrics = []; }
-        const fpPauseIcon = '<svg viewBox="0 0 24 24" style="width:35px;height:35px;fill:black;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>';
-        const fpPlayIcon  = '<svg viewBox="0 0 24 24" style="width:35px;height:35px;fill:black;margin-left:4px;"><path d="M8 5v14l11-7z"/></svg>';
         if (autoPlay) {
             initAudioGraph();
             if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
             audio.play().catch(e => console.error(e));
             masterPlay.innerHTML = pauseIcon;
-            document.getElementById('fp-masterPlay').innerHTML = fpPauseIcon;
+            document.getElementById('fp-masterPlay').innerHTML = pauseIcon;
         } else {
             masterPlay.innerHTML = playIcon;
-            document.getElementById('fp-masterPlay').innerHTML = fpPlayIcon;
+            document.getElementById('fp-masterPlay').innerHTML = playIcon;
         }
         updateQueueUI();
     }
@@ -1384,7 +1427,7 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         else if (loopMode === 1) { currentIndex = 0; loadTrack(true); }
         else {
             audio.pause(); audio.currentTime = 0; masterPlay.innerHTML = playIcon;
-            document.getElementById('fp-masterPlay').innerHTML = '<svg viewBox="0 0 24 24" style="width:35px;height:35px;fill:black;margin-left:4px;"><path d="M8 5v14l11-7z"/></svg>';
+            document.getElementById('fp-masterPlay').innerHTML = playIcon;
         }
     }
     function prevTrack() { if (currentIndex > 0) { currentIndex--; loadTrack(true); } }
@@ -1393,10 +1436,8 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         if (!audio.src) return;
         initAudioGraph();
         if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
-        const fpP = '<svg viewBox="0 0 24 24" style="width:35px;height:35px;fill:black;margin-left:4px;"><path d="M8 5v14l11-7z"/></svg>';
-        const fpPa = '<svg viewBox="0 0 24 24" style="width:35px;height:35px;fill:black;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>';
-        if (audio.paused) { audio.play(); masterPlay.innerHTML = pauseIcon; document.getElementById('fp-masterPlay').innerHTML = fpPa; }
-        else { audio.pause(); masterPlay.innerHTML = playIcon; document.getElementById('fp-masterPlay').innerHTML = fpP; }
+        if (audio.paused) { audio.play(); masterPlay.innerHTML = pauseIcon; document.getElementById('fp-masterPlay').innerHTML = pauseIcon; }
+        else { audio.pause(); masterPlay.innerHTML = playIcon; document.getElementById('fp-masterPlay').innerHTML = playIcon; }
     }
 
     function toggleShuffle() {
