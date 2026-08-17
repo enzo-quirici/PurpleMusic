@@ -264,6 +264,129 @@ if (!$isInstalled) {
 // ===========================================================
 require_once $configFile;
 
+// ===========================================================
+//  LANGUE (FR / EN)
+// ===========================================================
+if (isset($_GET['setlang']) && in_array($_GET['setlang'], ['fr', 'en'], true)) {
+    setcookie('am_lang', $_GET['setlang'], time() + 60 * 60 * 24 * 365, '/');
+    $qs = $_GET;
+    unset($qs['setlang']);
+    header('Location: ' . $_SERVER['PHP_SELF'] . (!empty($qs) ? '?' . http_build_query($qs) : ''));
+    exit;
+}
+$LANG = (($_COOKIE['am_lang'] ?? '') === 'en') ? 'en' : 'fr';
+
+$I18N = [
+    'login_username_ph'       => ['fr' => 'Utilisateur',                    'en' => 'Username'],
+    'login_password_ph'       => ['fr' => 'Mot de passe',                   'en' => 'Password'],
+    'login_submit'            => ['fr' => 'Connexion',                      'en' => 'Log in'],
+    'register_submit'         => ['fr' => 'Créer un compte',                'en' => 'Create account'],
+    'nav_library'             => ['fr' => 'Bibliothèque',                   'en' => 'Library'],
+    'nav_playlists'           => ['fr' => 'Playlists',                      'en' => 'Playlists'],
+    'nav_admin'               => ['fr' => 'Panel Admin',                    'en' => 'Admin Panel'],
+    'header_settings'         => ['fr' => 'Paramètres',                     'en' => 'Settings'],
+    'header_logout'           => ['fr' => 'Sortir',                         'en' => 'Log out'],
+    'search_placeholder'      => ['fr' => 'Rechercher titre, artiste...',   'en' => 'Search title, artist...'],
+    'sidebar_toggle_title'    => ['fr' => 'Réduire/agrandir le menu',       'en' => 'Collapse/expand menu'],
+    'admin_title'             => ['fr' => 'Configuration Système',          'en' => 'System Configuration'],
+    'admin_section_general'   => ['fr' => 'Général',                        'en' => 'General'],
+    'admin_section_theme'     => ['fr' => 'Thème Visuel',                   'en' => 'Visual Theme'],
+    'admin_section_assets'    => ['fr' => 'Assets Médias',                  'en' => 'Media Assets'],
+    'admin_section_genres'    => ['fr' => 'Gestionnaire des Genres',        'en' => 'Genre Manager'],
+    'admin_app_name'          => ['fr' => "Nom de l'application",           'en' => 'Application name'],
+    'color_bg'                => ['fr' => 'Arrière-plan',                   'en' => 'Background'],
+    'color_panel'             => ['fr' => 'Panneaux',                       'en' => 'Panels'],
+    'color_primary'           => ['fr' => 'Primaire',                       'en' => 'Primary'],
+    'color_accent'            => ['fr' => 'Accent',                         'en' => 'Accent'],
+    'color_text'              => ['fr' => 'Texte Principal',                'en' => 'Main Text'],
+    'color_text_muted'        => ['fr' => 'Texte Muted',                    'en' => 'Muted Text'],
+    'color_border'            => ['fr' => 'Bordures',                       'en' => 'Borders'],
+    'color_search_bg'         => ['fr' => 'Fond Recherche',                 'en' => 'Search Background'],
+    'color_fp_gradient_1'     => ['fr' => 'Gradient FP 1',                  'en' => 'FP Gradient 1'],
+    'color_fp_gradient_2'     => ['fr' => 'Gradient FP 2',                  'en' => 'FP Gradient 2'],
+    'color_header_bg_label'   => ['fr' => 'Header (supporte rgba)',         'en' => 'Header (supports rgba)'],
+    'color_player_bg_label'   => ['fr' => 'Mini-Lecteur (supporte rgba)',   'en' => 'Mini Player (supports rgba)'],
+    'color_mob_nav_bg_label'  => ['fr' => 'Nav Mobile (supporte rgba)',     'en' => 'Mobile Nav (supports rgba)'],
+    'admin_new_favicon'       => ['fr' => 'Nouveau Favicon (.png/.ico)',    'en' => 'New Favicon (.png/.ico)'],
+    'admin_new_cover'         => ['fr' => 'Nouvelle Cover par défaut',      'en' => 'New Default Cover'],
+    'admin_create_genre'      => ['fr' => 'Créer un genre',                 'en' => 'Create a genre'],
+    'admin_genre_ph'          => ['fr' => 'ex: Ambient, Jazz...',           'en' => 'e.g. Ambient, Jazz...'],
+    'admin_active_genres'     => ['fr' => 'Genres actifs :',                'en' => 'Active genres:'],
+    'confirm_delete_genre'    => ['fr' => 'Supprimer ce genre ?',           'en' => 'Delete this genre?'],
+    'btn_cancel'              => ['fr' => 'Annuler',                        'en' => 'Cancel'],
+    'btn_save'                => ['fr' => 'Enregistrer',                    'en' => 'Save'],
+    'section_all_tracks'      => ['fr' => 'Toutes les pistes',              'en' => 'All tracks'],
+    'sort_title'              => ['fr' => 'Trier',                          'en' => 'Sort'],
+    'sort_popular'            => ['fr' => 'Les plus écoutés',               'en' => 'Most played'],
+    'sort_date_desc'          => ['fr' => 'Ajouts récents',                 'en' => 'Recently added'],
+    'sort_date_asc'           => ['fr' => 'Ajouts anciens',                 'en' => 'Oldest added'],
+    'sort_alpha_asc'          => ['fr' => 'Nom (A-Z)',                      'en' => 'Name (A-Z)'],
+    'sort_alpha_desc'         => ['fr' => 'Nom (Z-A)',                      'en' => 'Name (Z-A)'],
+    'sort_artist'             => ['fr' => 'Par Artiste',                    'en' => 'By artist'],
+    'playlists_title'         => ['fr' => 'Tes Mixs',                       'en' => 'Your Mixes'],
+    'created_by'              => ['fr' => 'Créé par',                       'en' => 'Created by'],
+    'btn_play'                => ['fr' => '▶ Écouter',                      'en' => '▶ Play'],
+    'btn_edit'                => ['fr' => 'Éditer',                         'en' => 'Edit'],
+    'btn_delete_short'        => ['fr' => 'Suppr',                          'en' => 'Delete'],
+    'mobnav_library'          => ['fr' => 'Biblio',                         'en' => 'Library'],
+    'mobnav_mixes'            => ['fr' => 'Mixs',                           'en' => 'Mixes'],
+    'settings_title'          => ['fr' => 'Filtres & Paramètres',           'en' => 'Filters & Settings'],
+    'settings_language_label' => ['fr' => 'Langue :',                       'en' => 'Language:'],
+    'settings_theme_label'    => ['fr' => 'Thème :',                        'en' => 'Theme:'],
+    'settings_hide_genres_pre'   => ['fr' => 'Genres à',                    'en' => 'Genres to'],
+    'settings_hide_genres_word'  => ['fr' => 'masquer',                     'en' => 'hide'],
+    'settings_open_eq'        => ['fr' => "🎚 Ouvrir l'égaliseur",          'en' => '🎚 Open equalizer'],
+    'btn_close'               => ['fr' => 'Fermer',                         'en' => 'Close'],
+    'eq_title'                => ['fr' => 'Égaliseur',                      'en' => 'Equalizer'],
+    'eq_enable'               => ['fr' => "Activer l'égaliseur",            'en' => 'Enable equalizer'],
+    'eq_preset_flat'          => ['fr' => 'Plat',                           'en' => 'Flat'],
+    'eq_preset_bass'          => ['fr' => 'Basses',                         'en' => 'Bass'],
+    'eq_preset_treble'        => ['fr' => 'Aigus',                          'en' => 'Treble'],
+    'eq_preset_vocal'         => ['fr' => 'Voix',                           'en' => 'Vocal'],
+    'eq_band_bassboost'       => ['fr' => 'Boost Basses',                   'en' => 'Bass Boost'],
+    'upload_title_ph'         => ['fr' => 'Titre (auto-détecté si vide)',   'en' => 'Title (auto-detected if empty)'],
+    'upload_artist_ph'        => ['fr' => 'Artiste (auto-détecté si vide)', 'en' => 'Artist (auto-detected if empty)'],
+    'label_genre'             => ['fr' => 'Genre',                          'en' => 'Genre'],
+    'label_audio_file'        => ['fr' => 'Fichier Audio',                  'en' => 'Audio File'],
+    'label_cover_optional'    => ['fr' => 'Cover (optionnel)',              'en' => 'Cover (optional)'],
+    'btn_publish'             => ['fr' => 'Publier',                        'en' => 'Publish'],
+    'edit_track_title_h2'     => ['fr' => 'Modifier la piste',              'en' => 'Edit track'],
+    'label_title_ph'          => ['fr' => 'Titre',                          'en' => 'Title'],
+    'label_artist_ph'         => ['fr' => 'Artiste',                        'en' => 'Artist'],
+    'label_new_cover'         => ['fr' => 'Nouvelle cover',                 'en' => 'New cover'],
+    'playlist_default_title'  => ['fr' => 'Playlist',                       'en' => 'Playlist'],
+    'mix_name_ph'             => ['fr' => 'Nom du mix',                     'en' => 'Mix name'],
+    'search_dots_ph'          => ['fr' => '🔍 Rechercher...',               'en' => '🔍 Search...'],
+    'select_tracks_label'     => ['fr' => 'Sélectionnez les titres :',      'en' => 'Select tracks:'],
+    'ready_to_play'           => ['fr' => 'Prêt à écouter',                 'en' => 'Ready to play'],
+    'stopped'                 => ['fr' => 'Arrêté',                         'en' => 'Stopped'],
+    'title_minimize'          => ['fr' => 'Réduire',                        'en' => 'Minimize'],
+    'title_lyrics'            => ['fr' => 'Paroles',                        'en' => 'Lyrics'],
+    'title_queue'             => ['fr' => "File d'attente",                 'en' => 'Queue'],
+    'title_expand'            => ['fr' => 'Agrandir',                       'en' => 'Expand'],
+    'queue_empty'             => ['fr' => 'File vide...',                   'en' => 'Queue is empty...'],
+    'no_track_playing'        => ['fr' => 'Aucune piste en cours.',         'en' => 'No track playing.'],
+    'normal_playback'         => ['fr' => 'Lecture normale',                'en' => 'Normal playback'],
+    'selected_suffix'         => ['fr' => ' sélectionné(s)',                'en' => ' selected'],
+];
+function t(string $key): string {
+    global $I18N, $LANG;
+    return $I18N[$key][$LANG] ?? $I18N[$key]['fr'] ?? $key;
+}
+
+// api.php stocke déjà le texte HTML-échappé (sanitize_text côté API), donc un
+// "&" ou une apostrophe saisis à l'upload finissent en "&amp;"/"&#039;" littéral
+// en base. htmlspecialchars() les ré-échapperait une seconde fois à l'affichage,
+// ce qui montrerait le texte brut "&amp;"/"&#039;" au lieu du caractère voulu.
+// Utilisé uniquement pour le texte affiché (jamais pour les attributs value/
+// onclick qui doivent rester la valeur brute exacte pour matcher côté serveur).
+function fixEntities(string $s): string {
+    global $LANG;
+    $s = str_replace('&#039;', "'", $s);
+    $s = str_replace('&amp;', $LANG === 'en' ? 'and' : 'et', $s);
+    return $s;
+}
+
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
@@ -486,7 +609,7 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
 
 ?>
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="<?php echo $LANG; ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -530,7 +653,6 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         .nav-icon-emoji { font-size:1.1em; line-height:1; width:20px; text-align:center; }
         nav span:hover { color:var(--text); background:rgba(255,255,255,.05); }
         nav span.active { color:var(--accent); background:rgba(var(--accent-rgb),.1); }
-        nav span.admin-nav-btn { color:#e67e22; font-weight:700; }
         .header-actions { display:flex; flex-wrap:wrap; gap:10px; align-items:center; width:100%; margin-top:auto; padding-top:20px; border-top:1px solid rgba(255,255,255,.05); }
         .btn-icon { flex-shrink:0; }
 
@@ -549,10 +671,14 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         .btn { padding:10px 20px; border-radius:var(--radius-full); border:none; cursor:pointer; font-weight:700; transition:all .2s ease; text-decoration:none; display:inline-flex; align-items:center; gap:8px; font-size:.9em; white-space:nowrap; justify-content:center; }
         .btn:active { transform:scale(.96); }
         .btn-primary { background:var(--primary); color:white; box-shadow:0 4px 15px rgba(var(--primary-rgb),.3); }
-        .btn-primary:hover { background:#9b59b6; }
+        .btn-primary:hover { filter:brightness(1.15); }
         .btn-outline { background:transparent; border:1px solid var(--primary); color:var(--accent); }
         .btn-outline:hover { background:rgba(var(--primary-rgb),.1); }
         .btn-danger { background:rgba(255,71,87,.1); color:var(--danger); font-size:.75em; border:1px solid rgba(255,71,87,.3); padding:6px 12px; }
+        .lang-switch { display:flex; align-items:center; border:1px solid rgba(255,255,255,.1); border-radius:var(--radius-full); overflow:hidden; flex-shrink:0; }
+        .lang-switch a { padding:8px 12px; font-size:.78em; font-weight:700; color:var(--text-muted); text-decoration:none; transition:.2s; }
+        .lang-switch a.active { background:var(--primary); color:#fff; }
+        .lang-switch a:not(.active):hover { color:var(--text); background:rgba(255,255,255,.05); }
 
         main { padding:30px; max-width:1100px; margin:auto; }
         .controls-container { margin-bottom:25px; }
@@ -596,6 +722,12 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         .carousel-card:hover img { transform:scale(1.04); }
         .carousel-card .cc-title { font-weight:700; font-size:.9em; margin-top:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .carousel-card .cc-artist { font-size:.78em; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+        /* Carrousel de genres (filtre les 3 carrousels du bas) */
+        .genre-pill-track { display:flex; gap:10px; overflow-x:auto; scroll-behavior:smooth; padding:2px 2px 16px; scrollbar-width:thin; }
+        .genre-pill { flex:0 0 auto; padding:9px 20px; border-radius:999px; background:var(--bg-panel); border:1px solid rgba(61,43,86,.5); color:var(--text-muted); font-weight:700; font-size:.88em; cursor:pointer; white-space:nowrap; transition:.2s; }
+        .genre-pill:hover { color:var(--text); border-color:var(--accent); }
+        .genre-pill.active { background:var(--primary); border-color:var(--primary); color:#fff; }
 
         .playlist-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:25px; }
         .playlist-card { background:var(--bg-panel); border-radius:24px; padding:25px; border:1px solid rgba(61,43,86,.5); transition:transform .3s,box-shadow .3s; }
@@ -791,34 +923,38 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
 <body>
 
 <?php if (!$user_id): ?>
+<div class="lang-switch" style="position:fixed;top:20px;right:20px;">
+    <a href="?setlang=fr" class="<?php echo $LANG === 'fr' ? 'active' : ''; ?>">FR</a>
+    <a href="?setlang=en" class="<?php echo $LANG === 'en' ? 'active' : ''; ?>">EN</a>
+</div>
 <div style="max-width:350px;width:90%;margin:100px auto;text-align:center;">
     <div class="logo" style="font-size:3em;margin-bottom:30px;"><?php echo htmlspecialchars($site_name); ?></div>
     <form method="post">
         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
         <?php if (isset($error)) echo "<p style='color:var(--danger);'>" . htmlspecialchars($error) . "</p>"; ?>
         <?php if (isset($info))  echo "<p style='color:#2ecc71;'>" . htmlspecialchars($info) . "</p>"; ?>
-        <input type="text" name="username" placeholder="Utilisateur" required style="padding:15px;border-radius:12px;">
-        <input type="password" name="password" placeholder="Mot de passe" required style="padding:15px;border-radius:12px;">
-        <button type="submit" name="login" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:10px;padding:15px;">Connexion</button>
-        <button type="submit" name="register" class="btn btn-outline" style="width:100%;justify-content:center;margin-top:15px;padding:15px;">Créer un compte</button>
+        <input type="text" name="username" placeholder="<?php echo htmlspecialchars(t('login_username_ph')); ?>" required style="padding:15px;border-radius:12px;">
+        <input type="password" name="password" placeholder="<?php echo htmlspecialchars(t('login_password_ph')); ?>" required style="padding:15px;border-radius:12px;">
+        <button type="submit" name="login" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:10px;padding:15px;"><?php echo htmlspecialchars(t('login_submit')); ?></button>
+        <button type="submit" name="register" class="btn btn-outline" style="width:100%;justify-content:center;margin-top:15px;padding:15px;"><?php echo htmlspecialchars(t('register_submit')); ?></button>
     </form>
 </div>
 <?php else: ?>
 
 <header>
     <nav>
-        <span id="nav-accueil" class="active" onclick="showSection('accueil')" title="Bibliothèque">
+        <span id="nav-accueil" class="active" onclick="showSection('accueil')" title="<?php echo htmlspecialchars(t('nav_library')); ?>">
             <svg class="nav-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
-            <span class="nav-label">Bibliothèque</span>
+            <span class="nav-label"><?php echo htmlspecialchars(t('nav_library')); ?></span>
         </span>
-        <span id="nav-playlists" onclick="showSection('playlists')" title="Playlists">
+        <span id="nav-playlists" onclick="showSection('playlists')" title="<?php echo htmlspecialchars(t('nav_playlists')); ?>">
             <svg class="nav-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"/></svg>
-            <span class="nav-label">Playlists</span>
+            <span class="nav-label"><?php echo htmlspecialchars(t('nav_playlists')); ?></span>
         </span>
         <?php if ($is_admin): ?>
-            <span class="admin-nav-btn" onclick="openModal('adminPanelModal')" title="Panel Admin">
-                <span class="nav-icon nav-icon-emoji">⚙️</span>
-                <span class="nav-label">Panel Admin</span>
+            <span class="admin-nav-btn" onclick="openModal('adminPanelModal')" title="<?php echo htmlspecialchars(t('nav_admin')); ?>">
+                <svg class="nav-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M19.4 13c0-.3.1-.6.1-1s0-.7-.1-1l2.1-1.7c.2-.2.2-.4.1-.6l-2-3.5c-.1-.2-.3-.3-.6-.2l-2.5 1c-.5-.4-1.1-.7-1.7-1l-.4-2.7c0-.2-.2-.4-.5-.4h-4c-.3 0-.5.2-.5.4l-.4 2.7c-.6.2-1.2.6-1.7 1l-2.5-1c-.2-.1-.5 0-.6.2l-2 3.5c-.1.2-.1.5.1.6L4.6 11c-.1.3-.1.6-.1 1s0 .7.1 1l-2.1 1.7c-.2.2-.2.4-.1.6l2 3.5c.1.2.3.3.6.2l2.5-1c.5.4 1.1.7 1.7 1l.4 2.7c0 .2.2.4.5.4h4c.3 0 .5-.2.5-.4l.4-2.7c.6-.2 1.2-.6 1.7-1l2.5 1c.2.1.5 0 .6-.2l2-3.5c.1-.2.1-.5-.1-.6L19.4 13zM12 15.5c-1.9 0-3.5-1.6-3.5-3.5s1.6-3.5 3.5-3.5 3.5 1.6 3.5 3.5-1.6 3.5-3.5 3.5z"/></svg>
+                <span class="nav-label"><?php echo htmlspecialchars(t('nav_admin')); ?></span>
             </span>
         <?php endif; ?>
     </nav>
@@ -831,17 +967,17 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
             <svg class="btn-icon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>
             <span class="btn-label">Upload</span>
         </button>
-        <button class="btn btn-outline btn-labeled" onclick="openModal('settingsModal')" title="Paramètres">
+        <button class="btn btn-outline btn-labeled" onclick="openModal('settingsModal')" title="<?php echo htmlspecialchars(t('header_settings')); ?>">
             <svg class="btn-icon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M19.4 13c0-.3.1-.6.1-1s0-.7-.1-1l2.1-1.7c.2-.2.2-.4.1-.6l-2-3.5c-.1-.2-.3-.3-.6-.2l-2.5 1c-.5-.4-1.1-.7-1.7-1l-.4-2.7c0-.2-.2-.4-.5-.4h-4c-.3 0-.5.2-.5.4l-.4 2.7c-.6.2-1.2.6-1.7 1l-2.5-1c-.2-.1-.5 0-.6.2l-2 3.5c-.1.2-.1.5.1.6L4.6 11c-.1.3-.1.6-.1 1s0 .7.1 1l-2.1 1.7c-.2.2-.2.4-.1.6l2 3.5c.1.2.3.3.6.2l2.5-1c.5.4 1.1.7 1.7 1l.4 2.7c0 .2.2.4.5.4h4c.3 0 .5-.2.5-.4l.4-2.7c.6-.2 1.2-.6 1.7-1l2.5 1c.2.1.5 0 .6-.2l2-3.5c.1-.2.1-.5-.1-.6L19.4 13zM12 15.5c-1.9 0-3.5-1.6-3.5-3.5s1.6-3.5 3.5-3.5 3.5 1.6 3.5 3.5-1.6 3.5-3.5 3.5z"/></svg>
-            <span class="btn-label">Paramètres</span>
+            <span class="btn-label"><?php echo htmlspecialchars(t('header_settings')); ?></span>
         </button>
-        <a href="?logout=1" class="btn btn-labeled" style="color:var(--text-muted);" title="Sortir">
+        <a href="?logout=1" class="btn btn-labeled" style="color:var(--text-muted);" title="<?php echo htmlspecialchars(t('header_logout')); ?>">
             <svg class="btn-icon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
-            <span class="btn-label">Sortir</span>
+            <span class="btn-label"><?php echo htmlspecialchars(t('header_logout')); ?></span>
         </a>
     </div>
 </header>
-<button id="sidebar-toggle" onclick="toggleSidebar()" title="Réduire/agrandir le menu">
+<button id="sidebar-toggle" onclick="toggleSidebar()" title="<?php echo htmlspecialchars(t('sidebar_toggle_title')); ?>">
     <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
 </button>
 
@@ -851,69 +987,69 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M19.4 13c0-.3.1-.6.1-1s0-.7-.1-1l2.1-1.7c.2-.2.2-.4.1-.6l-2-3.5c-.1-.2-.3-.3-.6-.2l-2.5 1c-.5-.4-1.1-.7-1.7-1l-.4-2.7c0-.2-.2-.4-.5-.4h-4c-.3 0-.5.2-.5.4l-.4 2.7c-.6.2-1.2.6-1.7 1l-2.5-1c-.2-.1-.5 0-.6.2l-2 3.5c-.1.2-.1.5.1.6L4.6 11c-.1.3-.1.6-.1 1s0 .7.1 1l-2.1 1.7c-.2.2-.2.4-.1.6l2 3.5c.1.2.3.3.6.2l2.5-1c.5.4 1.1.7 1.7 1l.4 2.7c0 .2.2.4.5.4h4c.3 0 .5-.2.5-.4l.4-2.7c.6-.2 1.2-.6 1.7-1l2.5 1c.2.1.5 0 .6-.2l2-3.5c.1-.2.1-.5-.1-.6L19.4 13zM12 15.5c-1.9 0-3.5-1.6-3.5-3.5s1.6-3.5 3.5-3.5 3.5 1.6 3.5 3.5-1.6 3.5-3.5 3.5z"/></svg>
     </button>
     <div class="topbar-search">
-        <input type="text" id="searchInput" class="search-input" placeholder="Rechercher titre, artiste..." onkeyup="onSearchInput()">
+        <input type="text" id="searchInput" class="search-input" placeholder="<?php echo htmlspecialchars(t('search_placeholder')); ?>" onkeyup="onSearchInput()">
     </div>
 </div>
 
 <?php if ($is_admin): ?>
 <div id="adminPanelModal" class="modal"><div class="modal-content">
-    <h2 style="margin-top:0;color:#e67e22;">Configuration Système</h2>
+    <h2 style="margin-top:0;color:#e67e22;"><?php echo htmlspecialchars(t('admin_title')); ?></h2>
     <form method="post" enctype="multipart/form-data">
         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
 
         <div class="adm-accordion-item open">
-            <div class="adm-accordion-header" onclick="toggleAccordion(this)">Général</div>
+            <div class="adm-accordion-header" onclick="toggleAccordion(this)"><?php echo htmlspecialchars(t('admin_section_general')); ?></div>
             <div class="adm-accordion-content" style="display:block;">
-                <label>Nom de l'application</label>
+                <label><?php echo htmlspecialchars(t('admin_app_name')); ?></label>
                 <input type="text" name="adm_site_name" value="<?php echo htmlspecialchars($site_name); ?>" required>
             </div>
         </div>
 
         <div class="adm-accordion-item">
-            <div class="adm-accordion-header" onclick="toggleAccordion(this)">Thème Visuel</div>
+            <div class="adm-accordion-header" onclick="toggleAccordion(this)"><?php echo htmlspecialchars(t('admin_section_theme')); ?></div>
             <div class="adm-accordion-content">
                 <div class="extended-color-grid">
-                    <div class="extended-color-item"><span>Arrière-plan</span><input type="color" name="adm_color_bg" value="<?php echo $color_bg; ?>"></div>
-                    <div class="extended-color-item"><span>Panneaux</span><input type="color" name="adm_color_panel" value="<?php echo $color_panel; ?>"></div>
-                    <div class="extended-color-item"><span>Primaire</span><input type="color" name="adm_color_primary" value="<?php echo $color_primary; ?>"></div>
-                    <div class="extended-color-item"><span>Accent</span><input type="color" name="adm_color_accent" value="<?php echo $color_accent; ?>"></div>
-                    <div class="extended-color-item"><span>Texte Principal</span><input type="color" name="adm_color_text" value="<?php echo $color_text; ?>"></div>
-                    <div class="extended-color-item"><span>Texte Muted</span><input type="color" name="adm_color_text_muted" value="<?php echo $color_text_muted; ?>"></div>
-                    <div class="extended-color-item"><span>Bordures</span><input type="color" name="adm_color_border" value="<?php echo $color_border; ?>"></div>
-                    <div class="extended-color-item"><span>Fond Recherche</span><input type="color" name="adm_color_search_bg" value="<?php echo $color_search_bg; ?>"></div>
-                    <div class="extended-color-item"><span>Gradient FP 1</span><input type="color" name="adm_color_fp_gradient_1" value="<?php echo $color_fp_gradient_1; ?>"></div>
-                    <div class="extended-color-item"><span>Gradient FP 2</span><input type="color" name="adm_color_fp_gradient_2" value="<?php echo $color_fp_gradient_2; ?>"></div>
+                    <div class="extended-color-item"><span><?php echo htmlspecialchars(t('color_bg')); ?></span><input type="color" name="adm_color_bg" value="<?php echo $color_bg; ?>"></div>
+                    <div class="extended-color-item"><span><?php echo htmlspecialchars(t('color_panel')); ?></span><input type="color" name="adm_color_panel" value="<?php echo $color_panel; ?>"></div>
+                    <div class="extended-color-item"><span><?php echo htmlspecialchars(t('color_primary')); ?></span><input type="color" name="adm_color_primary" value="<?php echo $color_primary; ?>"></div>
+                    <div class="extended-color-item"><span><?php echo htmlspecialchars(t('color_accent')); ?></span><input type="color" name="adm_color_accent" value="<?php echo $color_accent; ?>"></div>
+                    <div class="extended-color-item"><span><?php echo htmlspecialchars(t('color_text')); ?></span><input type="color" name="adm_color_text" value="<?php echo $color_text; ?>"></div>
+                    <div class="extended-color-item"><span><?php echo htmlspecialchars(t('color_text_muted')); ?></span><input type="color" name="adm_color_text_muted" value="<?php echo $color_text_muted; ?>"></div>
+                    <div class="extended-color-item"><span><?php echo htmlspecialchars(t('color_border')); ?></span><input type="color" name="adm_color_border" value="<?php echo $color_border; ?>"></div>
+                    <div class="extended-color-item"><span><?php echo htmlspecialchars(t('color_search_bg')); ?></span><input type="color" name="adm_color_search_bg" value="<?php echo $color_search_bg; ?>"></div>
+                    <div class="extended-color-item"><span><?php echo htmlspecialchars(t('color_fp_gradient_1')); ?></span><input type="color" name="adm_color_fp_gradient_1" value="<?php echo $color_fp_gradient_1; ?>"></div>
+                    <div class="extended-color-item"><span><?php echo htmlspecialchars(t('color_fp_gradient_2')); ?></span><input type="color" name="adm_color_fp_gradient_2" value="<?php echo $color_fp_gradient_2; ?>"></div>
                 </div>
-                <label style="margin-top:12px;display:block;">Header (supporte rgba)</label>
+                <label style="margin-top:12px;display:block;"><?php echo htmlspecialchars(t('color_header_bg_label')); ?></label>
                 <input type="text" name="adm_color_header_bg" value="<?php echo htmlspecialchars($color_header_bg); ?>">
-                <label>Mini-Lecteur (supporte rgba)</label>
+                <label><?php echo htmlspecialchars(t('color_player_bg_label')); ?></label>
                 <input type="text" name="adm_color_player_bg" value="<?php echo htmlspecialchars($color_player_bg); ?>">
-                <label>Nav Mobile (supporte rgba)</label>
+                <label><?php echo htmlspecialchars(t('color_mob_nav_bg_label')); ?></label>
                 <input type="text" name="adm_color_mob_nav_bg" value="<?php echo htmlspecialchars($color_mob_nav_bg); ?>">
             </div>
         </div>
 
         <div class="adm-accordion-item">
-            <div class="adm-accordion-header" onclick="toggleAccordion(this)">Assets Médias</div>
+            <div class="adm-accordion-header" onclick="toggleAccordion(this)"><?php echo htmlspecialchars(t('admin_section_assets')); ?></div>
             <div class="adm-accordion-content">
-                <label>Nouveau Favicon (.png/.ico)</label>
+                <label><?php echo htmlspecialchars(t('admin_new_favicon')); ?></label>
                 <input type="file" name="adm_favicon" accept="image/png,image/x-icon">
-                <label>Nouvelle Cover par défaut</label>
+                <label><?php echo htmlspecialchars(t('admin_new_cover')); ?></label>
                 <input type="file" name="adm_default_cover" accept="image/png">
             </div>
         </div>
 
         <div class="adm-accordion-item">
-            <div class="adm-accordion-header" onclick="toggleAccordion(this)">Gestionnaire des Genres</div>
+            <div class="adm-accordion-header" onclick="toggleAccordion(this)"><?php echo htmlspecialchars(t('admin_section_genres')); ?></div>
             <div class="adm-accordion-content">
-                <label>Créer un genre</label>
-                <input type="text" name="adm_new_genre" placeholder="ex: Ambient, Jazz...">
-                <label style="font-weight:bold;display:block;margin-bottom:5px;">Genres actifs :</label>
+                <label><?php echo htmlspecialchars(t('admin_create_genre')); ?></label>
+                <input type="text" name="adm_new_genre" placeholder="<?php echo htmlspecialchars(t('admin_genre_ph')); ?>">
+                <label style="font-weight:bold;display:block;margin-bottom:5px;"><?php echo htmlspecialchars(t('admin_active_genres')); ?></label>
                 <div style="max-height:160px;overflow-y:auto;border:1px solid var(--border-color);padding:10px;border-radius:10px;">
                     <?php foreach ($genresList as $g): ?>
                         <div class="adm-genre-item">
-                            <span><?php echo htmlspecialchars($g); ?></span>
-                            <a href="?delete_genre=<?php echo urlencode($g); ?>" style="color:var(--danger);text-decoration:none;font-weight:bold;" onclick="return confirm('Supprimer ce genre ?')">✕</a>
+                            <span><?php echo htmlspecialchars(fixEntities($g)); ?></span>
+                            <a href="?delete_genre=<?php echo urlencode($g); ?>" style="color:var(--danger);text-decoration:none;font-weight:bold;" onclick="return confirm('<?php echo htmlspecialchars(t('confirm_delete_genre'), ENT_QUOTES); ?>')">✕</a>
                         </div>
                     <?php endforeach; ?>
                 </div>
@@ -921,29 +1057,30 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         </div>
 
         <div style="display:flex;gap:15px;margin-top:25px;">
-            <button type="button" class="btn" style="flex:1;border:1px solid rgba(255,255,255,.1);" onclick="closeModal('adminPanelModal')">Annuler</button>
-            <button type="submit" name="save_admin_settings" class="btn btn-primary" style="flex:1;">Enregistrer</button>
+            <button type="button" class="btn" style="flex:1;border:1px solid rgba(255,255,255,.1);" onclick="closeModal('adminPanelModal')"><?php echo htmlspecialchars(t('btn_cancel')); ?></button>
+            <button type="submit" name="save_admin_settings" class="btn btn-primary" style="flex:1;"><?php echo htmlspecialchars(t('btn_save')); ?></button>
         </div>
     </form>
 </div></div>
 <?php endif; ?>
 
 <main id="accueil">
+    <div class="genre-pill-track" id="genre-pills-track"></div>
     <div id="home-carousels"></div>
     <div class="controls-container">
-        <h2 class="section-title">Toutes les pistes</h2>
+        <h2 class="section-title"><?php echo htmlspecialchars(t('section_all_tracks')); ?></h2>
         <div class="search-row" style="justify-content:flex-end;">
-            <div class="filter-wrapper" title="Trier">
+            <div class="filter-wrapper" title="<?php echo htmlspecialchars(t('sort_title')); ?>">
                 <div class="filter-icon-visual">
                     <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M3 4c0-.55.45-1 1-1h10c.55 0 1 .45 1 1v1.5c0 .28-.11.53-.3.71L10 10.9v5.2c0 .28-.11.53-.29.71l-2 2c-.18.18-.43.29-.71.29s-.53-.11-.71-.29A.996.996 0 0 1 6 18.1v-7.2L3.3 6.21A.996.996 0 0 1 3 5.5V4z"/><rect x="16" y="5" width="6" height="2" rx="1"/><rect x="16" y="11" width="6" height="2" rx="1"/><rect x="16" y="17" width="6" height="2" rx="1"/></svg>
                 </div>
                 <select id="sortSelect" class="filter-select-overlay" onchange="filterAndSortTracks()">
-                    <option value="popular">Les plus écoutés</option>
-                    <option value="date_desc">Ajouts récents</option>
-                    <option value="date_asc">Ajouts anciens</option>
-                    <option value="alpha_asc">Nom (A-Z)</option>
-                    <option value="alpha_desc">Nom (Z-A)</option>
-                    <option value="artist">Par Artiste</option>
+                    <option value="popular"><?php echo htmlspecialchars(t('sort_popular')); ?></option>
+                    <option value="date_desc"><?php echo htmlspecialchars(t('sort_date_desc')); ?></option>
+                    <option value="date_asc"><?php echo htmlspecialchars(t('sort_date_asc')); ?></option>
+                    <option value="alpha_asc"><?php echo htmlspecialchars(t('sort_alpha_asc')); ?></option>
+                    <option value="alpha_desc"><?php echo htmlspecialchars(t('sort_alpha_desc')); ?></option>
+                    <option value="artist"><?php echo htmlspecialchars(t('sort_artist')); ?></option>
                 </select>
             </div>
         </div>
@@ -953,17 +1090,17 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
 </main>
 
 <main id="playlists" style="display:none;">
-    <h2 class="section-title" style="margin-bottom:25px;">Tes Mixs</h2>
+    <h2 class="section-title" style="margin-bottom:25px;"><?php echo htmlspecialchars(t('playlists_title')); ?></h2>
     <div class="playlist-grid">
         <?php foreach ($all_playlists as $p): ?>
             <div class="playlist-card">
-                <h3 style="margin-top:0;font-size:1.3em;"><?php echo htmlspecialchars($p['name']); ?></h3>
-                <p style="font-size:.85em;color:var(--text-muted);margin-bottom:20px;">Créé par <strong><?php echo htmlspecialchars($p['creator']); ?></strong></p>
-                <button class="btn btn-primary" style="width:100%;justify-content:center;margin-bottom:15px;" onclick="playPlaylist('<?php echo htmlspecialchars($p['song_ids']); ?>','<?php echo $p['id']; ?>')">▶ Écouter</button>
+                <h3 style="margin-top:0;font-size:1.3em;"><?php echo htmlspecialchars(fixEntities($p['name'])); ?></h3>
+                <p style="font-size:.85em;color:var(--text-muted);margin-bottom:20px;"><?php echo htmlspecialchars(t('created_by')); ?> <strong><?php echo htmlspecialchars(fixEntities($p['creator'])); ?></strong></p>
+                <button class="btn btn-primary" style="width:100%;justify-content:center;margin-bottom:15px;" onclick="playPlaylist('<?php echo htmlspecialchars($p['song_ids']); ?>','<?php echo $p['id']; ?>')"><?php echo htmlspecialchars(t('btn_play')); ?></button>
                 <?php if ($p['creator_id'] == $user_id || $is_admin): ?>
                     <div style="display:flex;gap:10px;">
-                        <button class="btn btn-outline" style="flex:1;justify-content:center;font-size:.8em;" onclick='openEditModal(<?php echo json_encode($p, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>)'>Éditer</button>
-                        <button class="btn btn-danger" style="flex:1;justify-content:center;border-radius:99px;" onclick="deletePlaylist(<?php echo (int)$p['id']; ?>)">Suppr</button>
+                        <button class="btn btn-outline" style="flex:1;justify-content:center;font-size:.8em;" onclick='openEditModal(<?php echo json_encode($p, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>)'><?php echo htmlspecialchars(t('btn_edit')); ?></button>
+                        <button class="btn btn-danger" style="flex:1;justify-content:center;border-radius:99px;" onclick="deletePlaylist(<?php echo (int)$p['id']; ?>)"><?php echo htmlspecialchars(t('btn_delete_short')); ?></button>
                     </div>
                 <?php endif; ?>
             </div>
@@ -973,10 +1110,10 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
 
 <div id="mobile-bottom-nav">
     <button class="mob-nav-item active" id="mob-nav-accueil" onclick="showSection('accueil')">
-        <svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>Biblio
+        <svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg><?php echo htmlspecialchars(t('mobnav_library')); ?>
     </button>
     <button class="mob-nav-item" id="mob-nav-playlists" onclick="showSection('playlists')">
-        <svg viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>Mixs
+        <svg viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg><?php echo htmlspecialchars(t('mobnav_mixes')); ?>
     </button>
     <?php if ($is_admin): ?>
         <button class="mob-nav-item" onclick="openModal('adminPanelModal')" style="color:#e67e22;">
@@ -990,36 +1127,42 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
 
 <!-- Modals -->
 <div id="settingsModal" class="modal"><div class="modal-content">
-    <h2 style="margin-top:0;">Filtres & Paramètres</h2>
+    <h2 style="margin-top:0;"><?php echo htmlspecialchars(t('settings_title')); ?></h2>
 
-    <p style="color:var(--text-muted);font-size:.9em;margin-bottom:10px;">Thème :</p>
+    <p style="color:var(--text-muted);font-size:.9em;margin-bottom:10px;"><?php echo htmlspecialchars(t('settings_language_label')); ?></p>
+    <div class="lang-switch" style="margin-bottom:20px;">
+        <a href="?setlang=fr" class="<?php echo $LANG === 'fr' ? 'active' : ''; ?>">FR</a>
+        <a href="?setlang=en" class="<?php echo $LANG === 'en' ? 'active' : ''; ?>">EN</a>
+    </div>
+
+    <p style="color:var(--text-muted);font-size:.9em;margin-bottom:10px;"><?php echo htmlspecialchars(t('settings_theme_label')); ?></p>
     <div class="theme-swatch-grid" id="theme-swatch-grid"></div>
 
-    <p style="color:var(--text-muted);font-size:.9em;margin-bottom:20px;">Genres à <strong style="color:var(--danger);">masquer</strong> :</p>
+    <p style="color:var(--text-muted);font-size:.9em;margin-bottom:20px;"><?php echo htmlspecialchars(t('settings_hide_genres_pre')); ?> <strong style="color:var(--danger);"><?php echo htmlspecialchars(t('settings_hide_genres_word')); ?></strong> :</p>
     <div class="settings-grid">
         <?php foreach ($genresList as $g): ?>
-            <label><input type="checkbox" class="genre-filter-cb" data-genre="<?php echo htmlspecialchars($g); ?>" onchange="toggleGenreSetting('<?php echo htmlspecialchars($g); ?>',this.checked)"> <?php echo htmlspecialchars($g); ?></label>
+            <label><input type="checkbox" class="genre-filter-cb" data-genre="<?php echo htmlspecialchars($g); ?>" onchange="toggleGenreSetting('<?php echo htmlspecialchars($g); ?>',this.checked)"> <?php echo htmlspecialchars(fixEntities($g)); ?></label>
         <?php endforeach; ?>
     </div>
 
-    <button class="btn btn-outline" style="width:100%;justify-content:center;margin-bottom:12px;" onclick="closeModal('settingsModal');openModal('equalizerModal');renderEqSliders();">🎚 Ouvrir l'égaliseur</button>
-    <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="closeModal('settingsModal')">Fermer</button>
+    <button class="btn btn-outline" style="width:100%;justify-content:center;margin-bottom:12px;" onclick="closeModal('settingsModal');openModal('equalizerModal');renderEqSliders();"><?php echo htmlspecialchars(t('settings_open_eq')); ?></button>
+    <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="closeModal('settingsModal')"><?php echo htmlspecialchars(t('btn_close')); ?></button>
 </div></div>
 
 <div id="equalizerModal" class="modal"><div class="modal-content">
-    <h2 style="margin-top:0;">Égaliseur</h2>
+    <h2 style="margin-top:0;"><?php echo htmlspecialchars(t('eq_title')); ?></h2>
     <label style="display:flex;align-items:center;gap:10px;margin-bottom:18px;cursor:pointer;">
-        <input type="checkbox" id="eqEnableToggle" style="width:auto;margin:0;" onchange="initAudioGraph();setEqEnabled(this.checked)"> Activer l'égaliseur
+        <input type="checkbox" id="eqEnableToggle" style="width:auto;margin:0;" onchange="initAudioGraph();setEqEnabled(this.checked)"> <?php echo htmlspecialchars(t('eq_enable')); ?>
     </label>
     <div class="eq-preset-row">
-        <button type="button" class="btn btn-outline" onclick="applyEqPreset('flat')">Plat</button>
-        <button type="button" class="btn btn-outline" onclick="applyEqPreset('bass')">Basses</button>
-        <button type="button" class="btn btn-outline" onclick="applyEqPreset('treble')">Aigus</button>
-        <button type="button" class="btn btn-outline" onclick="applyEqPreset('vocal')">Voix</button>
+        <button type="button" class="btn btn-outline" onclick="applyEqPreset('flat')"><?php echo htmlspecialchars(t('eq_preset_flat')); ?></button>
+        <button type="button" class="btn btn-outline" onclick="applyEqPreset('bass')"><?php echo htmlspecialchars(t('eq_preset_bass')); ?></button>
+        <button type="button" class="btn btn-outline" onclick="applyEqPreset('treble')"><?php echo htmlspecialchars(t('eq_preset_treble')); ?></button>
+        <button type="button" class="btn btn-outline" onclick="applyEqPreset('vocal')"><?php echo htmlspecialchars(t('eq_preset_vocal')); ?></button>
         <button type="button" class="btn btn-outline" onclick="applyEqPreset('rock')">Rock</button>
         <button type="button" class="btn btn-outline" onclick="applyEqPreset('pop')">Pop</button>
     </div>
-    <?php foreach (['Boost Basses','60 Hz','230 Hz','910 Hz','3.6 kHz','14 kHz'] as $i => $lbl): ?>
+    <?php foreach ([t('eq_band_bassboost'),'60 Hz','230 Hz','910 Hz','3.6 kHz','14 kHz'] as $i => $lbl): ?>
     <div class="eq-row">
         <span class="eq-label"><?php echo htmlspecialchars($lbl); ?></span>
         <input type="range" min="-12" max="12" step="1" value="0" id="eq-slider-<?php echo $i; ?>" class="vol-slider"
@@ -1027,76 +1170,76 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         <span class="eq-val" id="eq-val-<?php echo $i; ?>">0 dB</span>
     </div>
     <?php endforeach; ?>
-    <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:10px;" onclick="closeModal('equalizerModal')">Fermer</button>
+    <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:10px;" onclick="closeModal('equalizerModal')"><?php echo htmlspecialchars(t('btn_close')); ?></button>
 </div></div>
 
 <div id="uploadModal" class="modal"><div class="modal-content">
     <h2 style="margin-top:0;">Upload</h2>
     <form id="upload-form">
-        <input type="text" id="upload-title" placeholder="Titre (auto-détecté si vide)">
-        <input type="text" id="upload-artist" placeholder="Artiste (auto-détecté si vide)">
-        <label style="font-size:.85em;color:var(--text-muted);display:block;margin-bottom:5px;">Genre</label>
+        <input type="text" id="upload-title" placeholder="<?php echo htmlspecialchars(t('upload_title_ph')); ?>">
+        <input type="text" id="upload-artist" placeholder="<?php echo htmlspecialchars(t('upload_artist_ph')); ?>">
+        <label style="font-size:.85em;color:var(--text-muted);display:block;margin-bottom:5px;"><?php echo htmlspecialchars(t('label_genre')); ?></label>
         <select id="upload-genre">
             <?php foreach ($genresList as $g): ?>
-                <option value="<?php echo htmlspecialchars($g); ?>"><?php echo htmlspecialchars($g); ?></option>
+                <option value="<?php echo htmlspecialchars($g); ?>"><?php echo htmlspecialchars(fixEntities($g)); ?></option>
             <?php endforeach; ?>
         </select>
-        <label style="font-size:.85em;color:var(--text-muted);display:block;margin-bottom:5px;">Fichier Audio</label>
+        <label style="font-size:.85em;color:var(--text-muted);display:block;margin-bottom:5px;"><?php echo htmlspecialchars(t('label_audio_file')); ?></label>
         <input type="file" id="upload-music" accept="audio/*" required>
-        <label style="font-size:.85em;color:var(--text-muted);display:block;margin-bottom:5px;">Cover (optionnel)</label>
+        <label style="font-size:.85em;color:var(--text-muted);display:block;margin-bottom:5px;"><?php echo htmlspecialchars(t('label_cover_optional')); ?></label>
         <input type="file" id="upload-cover" accept="image/*">
         <div style="display:flex;gap:15px;margin-top:20px;">
-            <button type="button" class="btn" style="flex:1;justify-content:center;color:var(--text-muted);border:1px solid var(--border-color);" onclick="closeModal('uploadModal')">Annuler</button>
-            <button type="submit" class="btn btn-primary" style="flex:1;justify-content:center;">Publier</button>
+            <button type="button" class="btn" style="flex:1;justify-content:center;color:var(--text-muted);border:1px solid var(--border-color);" onclick="closeModal('uploadModal')"><?php echo htmlspecialchars(t('btn_cancel')); ?></button>
+            <button type="submit" class="btn btn-primary" style="flex:1;justify-content:center;"><?php echo htmlspecialchars(t('btn_publish')); ?></button>
         </div>
     </form>
 </div></div>
 
 <div id="editTrackModal" class="modal"><div class="modal-content">
-    <h2 style="margin-top:0;">Modifier la piste</h2>
+    <h2 style="margin-top:0;"><?php echo htmlspecialchars(t('edit_track_title_h2')); ?></h2>
     <form id="edit-track-form">
         <input type="hidden" id="edit-track-id">
-        <input type="text" id="edit-track-title" placeholder="Titre" required>
-        <input type="text" id="edit-track-artist" placeholder="Artiste">
-        <label style="font-size:.85em;color:var(--text-muted);display:block;margin-bottom:5px;">Genre</label>
+        <input type="text" id="edit-track-title" placeholder="<?php echo htmlspecialchars(t('label_title_ph')); ?>" required>
+        <input type="text" id="edit-track-artist" placeholder="<?php echo htmlspecialchars(t('label_artist_ph')); ?>">
+        <label style="font-size:.85em;color:var(--text-muted);display:block;margin-bottom:5px;"><?php echo htmlspecialchars(t('label_genre')); ?></label>
         <select id="edit-track-genre">
             <?php foreach ($genresList as $g): ?>
-                <option value="<?php echo htmlspecialchars($g); ?>"><?php echo htmlspecialchars($g); ?></option>
+                <option value="<?php echo htmlspecialchars($g); ?>"><?php echo htmlspecialchars(fixEntities($g)); ?></option>
             <?php endforeach; ?>
         </select>
-        <label style="font-size:.85em;color:var(--text-muted);display:block;margin-bottom:5px;">Nouvelle cover</label>
+        <label style="font-size:.85em;color:var(--text-muted);display:block;margin-bottom:5px;"><?php echo htmlspecialchars(t('label_new_cover')); ?></label>
         <input type="file" id="edit-track-cover" accept="image/*">
         <div style="display:flex;gap:15px;margin-top:20px;">
-            <button type="button" class="btn" style="flex:1;justify-content:center;color:var(--text-muted);border:1px solid var(--border-color);" onclick="closeModal('editTrackModal')">Annuler</button>
-            <button type="submit" class="btn btn-primary" style="flex:1;justify-content:center;">Enregistrer</button>
+            <button type="button" class="btn" style="flex:1;justify-content:center;color:var(--text-muted);border:1px solid var(--border-color);" onclick="closeModal('editTrackModal')"><?php echo htmlspecialchars(t('btn_cancel')); ?></button>
+            <button type="submit" class="btn btn-primary" style="flex:1;justify-content:center;"><?php echo htmlspecialchars(t('btn_save')); ?></button>
         </div>
     </form>
 </div></div>
 
 <div id="playlistModal" class="modal"><div class="modal-content">
-    <h2 id="modal-playlist-title" style="margin-top:0;">Playlist</h2>
+    <h2 id="modal-playlist-title" style="margin-top:0;"><?php echo htmlspecialchars(t('playlist_default_title')); ?></h2>
     <form id="playlist-form">
         <input type="hidden" id="form-playlist-id">
-        <input type="text" id="form-playlist-name" placeholder="Nom du mix" required>
-        <input type="text" id="playlist-search" placeholder="🔍 Rechercher..." onkeyup="filterPlaylistTracks()" style="margin-bottom:10px;">
+        <input type="text" id="form-playlist-name" placeholder="<?php echo htmlspecialchars(t('mix_name_ph')); ?>" required>
+        <input type="text" id="playlist-search" placeholder="<?php echo htmlspecialchars(t('search_dots_ph')); ?>" onkeyup="filterPlaylistTracks()" style="margin-bottom:10px;">
         <div style="display:flex;justify-content:space-between;font-size:.85em;color:var(--text-muted);margin-bottom:10px;">
-            <span>Sélectionnez les titres :</span><span id="selected-count">0 sélectionné(s)</span>
+            <span><?php echo htmlspecialchars(t('select_tracks_label')); ?></span><span id="selected-count">0<?php echo htmlspecialchars(t('selected_suffix')); ?></span>
         </div>
         <div class="song-select-container">
             <?php foreach ($all_tracks as $t): ?>
-                <div class="song-select-item" onclick="toggleSelection(this)" data-title="<?php echo strtolower(htmlspecialchars($t['title'])); ?>">
+                <div class="song-select-item" onclick="toggleSelection(this)" data-title="<?php echo strtolower(htmlspecialchars(fixEntities($t['title']))); ?>">
                     <input type="checkbox" class="song-cb" data-id="<?php echo $t['id']; ?>">
                     <img src="<?php echo htmlspecialchars($t['cover_url']); ?>" loading="lazy" style="width:40px;height:40px;border-radius:8px;margin-right:12px;object-fit:cover;" onerror="this.onerror=null;this.src='covers/default.png'">
                     <div style="flex:1;overflow:hidden;">
-                        <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><?php echo htmlspecialchars($t['title']); ?></div>
-                        <div style="font-size:.85em;color:var(--text-muted);"><?php echo htmlspecialchars($t['artist']); ?></div>
+                        <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><?php echo htmlspecialchars(fixEntities($t['title'])); ?></div>
+                        <div style="font-size:.85em;color:var(--text-muted);"><?php echo htmlspecialchars(fixEntities($t['artist'])); ?></div>
                     </div>
                 </div>
             <?php endforeach; ?>
         </div>
         <div style="display:flex;gap:15px;margin-top:20px;">
-            <button type="button" class="btn" style="flex:1;justify-content:center;color:var(--text-muted);border:1px solid var(--border-color);" onclick="closeModal('playlistModal')">Annuler</button>
-            <button type="submit" class="btn btn-primary" style="flex:1;justify-content:center;">Enregistrer</button>
+            <button type="button" class="btn" style="flex:1;justify-content:center;color:var(--text-muted);border:1px solid var(--border-color);" onclick="closeModal('playlistModal')"><?php echo htmlspecialchars(t('btn_cancel')); ?></button>
+            <button type="submit" class="btn btn-primary" style="flex:1;justify-content:center;"><?php echo htmlspecialchars(t('btn_save')); ?></button>
         </div>
     </form>
 </div></div>
@@ -1113,8 +1256,8 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
     <div class="player-info" onclick="openSmartPlayer()">
         <img src="covers/<?php echo htmlspecialchars($default_cover); ?>" id="player-cover" loading="lazy">
         <div style="overflow:hidden;flex:1;">
-            <div id="play-title" style="font-weight:700;font-size:.95em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Prêt à écouter</div>
-            <div id="play-status" style="font-size:.75em;color:var(--accent);margin-top:2px;">Arrêté</div>
+            <div id="play-title" style="font-weight:700;font-size:.95em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><?php echo htmlspecialchars(t('ready_to_play')); ?></div>
+            <div id="play-status" style="font-size:.75em;color:var(--accent);margin-top:2px;"><?php echo htmlspecialchars(t('stopped')); ?></div>
         </div>
     </div>
     <div class="pb-right">
@@ -1122,18 +1265,18 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
             <svg viewBox="0 0 24 24" width="20" height="20" fill="var(--text-muted)"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
             <input type="range" id="desktop-vol" class="vol-slider" min="0" max="1" step="0.01" value="1">
         </div>
-        <button class="control-btn" id="loopBtn" onclick="toggleLoop()" title="Lecture normale"><svg viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg><span class="loop-badge">1</span></button>
+        <button class="control-btn" id="loopBtn" onclick="toggleLoop()" title="<?php echo htmlspecialchars(t('normal_playback')); ?>"><svg viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg><span class="loop-badge">1</span></button>
         <button class="control-btn" id="shuffleBtn" onclick="toggleShuffle()"><svg viewBox="0 0 24 24"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg></button>
-        <button class="control-btn pb-expand" onclick="openSmartPlayer()" title="Agrandir"><svg viewBox="0 0 24 24"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg></button>
+        <button class="control-btn pb-expand" onclick="openSmartPlayer()" title="<?php echo htmlspecialchars(t('title_expand')); ?>"><svg viewBox="0 0 24 24"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg></button>
     </div>
 </div>
 
 <div id="full-player">
     <div id="fp-bg"><img id="fp-bg-img" alt=""></div>
-    <button class="fp-close-btn" onclick="closeFullPlayer()" title="Réduire"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:var(--player-text);"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg></button>
+    <button class="fp-close-btn" onclick="closeFullPlayer()" title="<?php echo htmlspecialchars(t('title_minimize')); ?>"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:var(--player-text);"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg></button>
     <div class="fp-mobile-tabs-toggle">
-        <button class="fp-btn" id="lyricsBtn" onclick="toggleFpTab('lyrics')" title="Paroles"><svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:var(--player-text);"><path d="M20 2H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h4l4 4 4-4h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h9v2H6V9zm6 5H6v-2h6v2zm5-6H6V6h11v2z"/></svg></button>
-        <button class="fp-btn" id="fpQueueBtn" onclick="toggleFpTab('queue')" title="File d'attente"><svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:var(--player-text);"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg></button>
+        <button class="fp-btn" id="lyricsBtn" onclick="toggleFpTab('lyrics')" title="<?php echo htmlspecialchars(t('title_lyrics')); ?>"><svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:var(--player-text);"><path d="M20 2H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h4l4 4 4-4h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h9v2H6V9zm6 5H6v-2h6v2zm5-6H6V6h11v2z"/></svg></button>
+        <button class="fp-btn" id="fpQueueBtn" onclick="toggleFpTab('queue')" title="<?php echo htmlspecialchars(t('title_queue')); ?>"><svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:var(--player-text);"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg></button>
     </div>
     <div class="fp-body">
         <div class="fp-main">
@@ -1141,16 +1284,16 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         </div>
         <div id="fp-sidebar">
             <div class="fp-sidebar-tabs">
-                <button class="fp-tab-btn active" id="fpTabQueueBtn" onclick="openFpTab('queue')">File d'attente</button>
-                <button class="fp-tab-btn" id="fpTabLyricsBtn" onclick="openFpTab('lyrics')">Paroles</button>
-                <button class="fp-sidebar-close" onclick="toggleFpTab(currentFpTab)" title="Fermer"><svg viewBox="0 0 24 24" width="18" height="18" fill="var(--player-text)"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
+                <button class="fp-tab-btn active" id="fpTabQueueBtn" onclick="openFpTab('queue')"><?php echo htmlspecialchars(t('title_queue')); ?></button>
+                <button class="fp-tab-btn" id="fpTabLyricsBtn" onclick="openFpTab('lyrics')"><?php echo htmlspecialchars(t('title_lyrics')); ?></button>
+                <button class="fp-sidebar-close" onclick="toggleFpTab(currentFpTab)" title="<?php echo htmlspecialchars(t('btn_close')); ?>"><svg viewBox="0 0 24 24" width="18" height="18" fill="var(--player-text)"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
             </div>
             <div class="fp-sidebar-content">
                 <div id="fp-queue-tab" class="fp-tab-pane active">
-                    <div id="fp-queue-list"><p style="color:var(--text-muted);">File vide...</p></div>
+                    <div id="fp-queue-list"><p style="color:var(--text-muted);"><?php echo htmlspecialchars(t('queue_empty')); ?></p></div>
                 </div>
                 <div id="fp-lyrics-tab" class="fp-tab-pane">
-                    <div id="lyrics-content"><p class="lyrics-status">Aucune piste en cours.</p></div>
+                    <div id="lyrics-content"><p class="lyrics-status"><?php echo htmlspecialchars(t('no_track_playing')); ?></p></div>
                 </div>
             </div>
         </div>
@@ -1166,8 +1309,8 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         <div class="fp-bb-track">
             <img id="fp-bb-cover" src="covers/<?php echo htmlspecialchars($default_cover); ?>" loading="lazy">
             <div class="fp-bb-info">
-                <div id="fp-title"><span id="fp-title-text">Titre</span></div>
-                <div id="fp-artist">Artiste</div>
+                <div id="fp-title"><span id="fp-title-text"><?php echo htmlspecialchars(t('label_title_ph')); ?></span></div>
+                <div id="fp-artist"><?php echo htmlspecialchars(t('label_artist_ph')); ?></div>
             </div>
         </div>
         <div class="pb-right">
@@ -1175,7 +1318,7 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="var(--player-text)"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
                 <input type="range" id="mobile-vol" class="vol-slider" min="0" max="1" step="0.01" value="1">
             </div>
-            <button class="control-btn" id="fp-loopBtn" onclick="toggleLoop()" style="position:relative;" title="Lecture normale"><svg viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg><span class="loop-badge">1</span></button>
+            <button class="control-btn" id="fp-loopBtn" onclick="toggleLoop()" style="position:relative;" title="<?php echo htmlspecialchars(t('normal_playback')); ?>"><svg viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg><span class="loop-badge">1</span></button>
             <button class="control-btn" id="fp-shuffleBtn" onclick="toggleShuffle()"><svg viewBox="0 0 24 24"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg></button>
         </div>
     </div>
@@ -1184,6 +1327,75 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
 <audio id="mainAudio"></audio>
 
 <script>
+    const LANG = <?php echo json_encode($LANG); ?>;
+    const I18N_STRINGS = {
+        fr: {
+            err_api_unreachable: 'Impossible de contacter api.php.',
+            no_tracks_found: 'Aucune piste trouvée.',
+            unknown_artist: 'Artiste inconnu',
+            recommended_for_you: 'Recommandé pour vous',
+            popular: 'Populaire',
+            hidden_gems: 'Pépites cachées',
+            prev: 'Précédent',
+            next: 'Suivant',
+            all: 'Tous',
+            confirm_delete_track: 'Supprimer cette piste ?',
+            confirm_delete_playlist: 'Supprimer cette playlist ?',
+            err_delete: 'Erreur lors de la suppression.',
+            wait_before_upload: 'Patiente quelques secondes avant un nouvel upload.',
+            choose_audio_file: 'Choisis un fichier audio.',
+            uploading_ellipsis: 'Envoi…',
+            err_upload: "Erreur lors de l'upload.",
+            err_edit: 'Erreur lors de la modification.',
+            err_generic: 'Erreur.',
+            selected_suffix: ' sélectionné(s)',
+            new_playlist: 'Nouvelle Playlist',
+            edit_playlist: 'Modifier Playlist',
+            no_music_available: 'Aucune musique disponible.',
+            loading_lyrics: 'Chargement des paroles…',
+            no_lyrics: 'Aucune parole disponible.',
+            err_lyrics: 'Erreur lors du chargement des paroles.',
+            repeat_track: 'Répéter le titre',
+            repeat_queue: 'Répéter la file',
+            normal_playback: 'Lecture normale',
+            theme_site_default: 'Site (Défaut)',
+            theme_adaptive: 'Adaptatif',
+        },
+        en: {
+            err_api_unreachable: 'Unable to reach api.php.',
+            no_tracks_found: 'No tracks found.',
+            unknown_artist: 'Unknown artist',
+            recommended_for_you: 'Recommended for you',
+            popular: 'Popular',
+            hidden_gems: 'Hidden gems',
+            prev: 'Previous',
+            next: 'Next',
+            all: 'All',
+            confirm_delete_track: 'Delete this track?',
+            confirm_delete_playlist: 'Delete this playlist?',
+            err_delete: 'Error while deleting.',
+            wait_before_upload: 'Please wait a few seconds before uploading again.',
+            choose_audio_file: 'Choose an audio file.',
+            uploading_ellipsis: 'Uploading…',
+            err_upload: 'Error during upload.',
+            err_edit: 'Error while editing.',
+            err_generic: 'Error.',
+            selected_suffix: ' selected',
+            new_playlist: 'New playlist',
+            edit_playlist: 'Edit playlist',
+            no_music_available: 'No music available.',
+            loading_lyrics: 'Loading lyrics…',
+            no_lyrics: 'No lyrics available.',
+            err_lyrics: 'Error loading lyrics.',
+            repeat_track: 'Repeat track',
+            repeat_queue: 'Repeat queue',
+            normal_playback: 'Normal playback',
+            theme_site_default: 'Site (Default)',
+            theme_adaptive: 'Adaptive',
+        },
+    };
+    function t(key) { return (I18N_STRINGS[LANG] && I18N_STRINGS[LANG][key]) || I18N_STRINGS.fr[key] || key; }
+
     const ALL_MUSIC_DATA   = <?php echo json_encode($all_tracks, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>;
     const CURRENT_USER_ID  = <?php echo json_encode($user_id); ?>;
     const IS_ADMIN         = <?php echo json_encode($is_admin); ?>;
@@ -1205,7 +1417,7 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
             const res = await fetch('api.php?action=' + encodeURIComponent(action), { method: 'POST', body });
             return await res.json();
         } catch (e) {
-            return { status: 'error', message: 'Impossible de contacter api.php.' };
+            return { status: 'error', message: t('err_api_unreachable') };
         }
     }
     async function apiCallForm(action, formData) {
@@ -1215,7 +1427,7 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
             const res = await fetch('api.php?action=' + encodeURIComponent(action), { method: 'POST', body: formData });
             return await res.json();
         } catch (e) {
-            return { status: 'error', message: 'Impossible de contacter api.php.' };
+            return { status: 'error', message: t('err_api_unreachable') };
         }
     }
 
@@ -1266,9 +1478,46 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         return str.toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
     }
 
+    // Les métadonnées (titre, artiste, playlist...) sont stockées déjà
+    // HTML-échappées par api.php (sanitize_text), donc un "&" ou une apostrophe
+    // saisis à l'upload finissent en "&amp;"/"&#039;" littéral en base. Sans
+    // ce correctif, escapeHTML() les ré-échapperait une seconde fois et le
+    // navigateur afficherait le texte brut "&amp;"/"&#039;" au lieu du
+    // caractère voulu. Pour l'affichage courant (titres, listes...), "&amp;"
+    // devient le mot "and"/"et" selon la langue ; pour les paroles, on
+    // restitue plutôt le symbole "&" littéral pour ne pas altérer le texte
+    // de la chanson.
+    function fixEntities(str) {
+        if (str == null) return str;
+        return str.toString().split('&#039;').join("'").split('&amp;').join(LANG === 'en' ? 'and' : 'et');
+    }
+    function fixEntitiesLiteral(str) {
+        if (str == null) return str;
+        return str.toString().split('&#039;').join("'").split('&amp;').join('&');
+    }
+    // Échappe une chaîne pour l'insérer comme argument dans un attribut
+    // onclick="...('...')" : d'abord l'échappement JS (backslash puis
+    // apostrophe), puis l'échappement HTML de l'attribut lui-même — le
+    // navigateur ne décode les entités qu'une fois en parsant l'attribut,
+    // ce qui restitue exactement la séquence d'échappement JS voulue.
+    // Nécessaire dès qu'un texte peut contenir une vraie apostrophe (ex:
+    // après fixEntities()) : un simple .replace(/'/g,"\\'") appliqué après
+    // escapeHTML() ne trouve plus d'apostrophe brute à échapper puisque
+    // escapeHTML() l'a déjà convertie en "&#039;".
+    function jsAttrEscape(str) {
+        if (str == null) return '';
+        return escapeHTML(str.toString().replace(/\\/g,'\\\\').replace(/'/g,"\\'"));
+    }
+
     let searchTimeout;
     function onSearchInput() {
-        if (currentSection !== 'accueil' && document.getElementById('searchInput').value.trim() !== '') showSection('accueil');
+        const term = document.getElementById('searchInput').value.trim();
+        if (currentSection !== 'accueil' && term !== '') showSection('accueil');
+        // Les carrousels d'accueil (Recommandé / Populaire / Pépites cachées) n'ont
+        // pas de sens pendant une recherche : ils réapparaissent dès que la barre
+        // de recherche est vidée.
+        const carousels = document.getElementById('home-carousels');
+        if (carousels) carousels.style.display = term === '' ? '' : 'none';
         clearTimeout(searchTimeout); searchTimeout = setTimeout(filterAndSortTracks, 250);
     }
 
@@ -1284,7 +1533,9 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         if (isChecked) { if (!hiddenGenres.includes(genre)) hiddenGenres.push(genre); }
         else { hiddenGenres = hiddenGenres.filter(g => g !== genre); }
         localStorage.setItem('hiddenGenres', JSON.stringify(hiddenGenres));
+        if (selectedHomeGenre !== null && hiddenGenres.includes(selectedHomeGenre)) selectedHomeGenre = null;
         filterAndSortTracks();
+        renderGenrePillsCarousel();
         renderHomeCarousels();
     }
 
@@ -1293,18 +1544,23 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         const chunk = CURRENT_VIEW_DATA.slice(renderedCount, renderedCount + RENDER_CHUNK);
         if (renderedCount === 0) listContainer.innerHTML = '';
         if (chunk.length === 0 && renderedCount === 0) {
-            listContainer.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-muted);">Aucune piste trouvée.</div>'; return;
+            listContainer.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-muted);">${t('no_tracks_found')}</div>`; return;
         }
         const fragment = document.createDocumentFragment();
         chunk.forEach((t, index) => {
             const idx = renderedCount + index + 1;
-            const safeTitle  = escapeHTML(t.title);
-            const safeArtist = escapeHTML(t.artist);
-            const safeGenre  = escapeHTML(t.genre || 'Autre');
+            const safeTitle  = escapeHTML(fixEntities(t.title));
+            const safeArtist = escapeHTML(fixEntities(t.artist));
+            // Le genre brut (non décodé) doit correspondre exactement à l'attribut
+            // value des <option> du select "Genre" de la modale d'édition
+            // (openEditTrackModal). displayGenre est la version décodée affichée
+            // dans la liste.
+            const rawGenre     = t.genre || 'Autre';
+            const displayGenre = escapeHTML(fixEntities(rawGenre));
             const safeCover  = escapeHTML(t.cover_url);
-            const jsTitle    = safeTitle.replace(/'/g,"\\'");
-            const jsArtist   = safeArtist.replace(/'/g,"\\'");
-            const jsGenre    = safeGenre.replace(/'/g,"\\'");
+            const jsTitle    = jsAttrEscape(fixEntities(t.title));
+            const jsArtist   = jsAttrEscape(fixEntities(t.artist));
+            const jsGenre    = jsAttrEscape(rawGenre);
             let editButtons  = '';
             if (t.uploader_id == CURRENT_USER_ID || IS_ADMIN) {
                 editButtons = `
@@ -1318,7 +1574,7 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
                 <div style="cursor:pointer;overflow:hidden;" onclick="playTrackById(${t.id})">
                     <div style="font-weight:700;font-size:1.05em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px;">${safeTitle}</div>
                     <div style="font-size:.85em;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-                        ${safeArtist} <span style="opacity:.6;font-size:.9em;">• ${safeGenre} • ▶ ${t.play_count||0}</span>
+                        ${safeArtist} <span style="opacity:.6;font-size:.9em;">• ${displayGenre} • ▶ ${t.play_count||0}</span>
                     </div>
                 </div>
                 <div style="display:flex;gap:8px;">${editButtons}</div>`;
@@ -1349,8 +1605,8 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
     function renderCarouselSection(id, title, tracks) {
         if (!tracks.length) return '';
         const cardsHtml = tracks.map(t => {
-            const safeTitle  = escapeHTML(t.title);
-            const safeArtist = escapeHTML(t.artist || 'Artiste inconnu');
+            const safeTitle  = escapeHTML(fixEntities(t.title));
+            const safeArtist = escapeHTML(fixEntities(t.artist) || t('unknown_artist'));
             const safeCover  = escapeHTML(t.cover_url);
             return `<div class="carousel-card" onclick="playTrackById(${t.id})">
                 <div class="cc-cover-wrap"><img src="${safeCover}" loading="lazy" alt="" onerror="this.onerror=null;this.src='covers/default.png'"></div>
@@ -1362,8 +1618,8 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
             <div class="carousel-header">
                 <h3 class="carousel-title">${title}</h3>
                 <div class="carousel-nav">
-                    <button class="carousel-nav-btn" onclick="scrollCarousel('${id}',-1)" title="Précédent">‹</button>
-                    <button class="carousel-nav-btn" onclick="scrollCarousel('${id}',1)" title="Suivant">›</button>
+                    <button class="carousel-nav-btn" onclick="scrollCarousel('${id}',-1)" title="${t('prev')}">‹</button>
+                    <button class="carousel-nav-btn" onclick="scrollCarousel('${id}',1)" title="${t('next')}">›</button>
                 </div>
             </div>
             <div class="carousel-track" id="${id}">${cardsHtml}</div>
@@ -1375,10 +1631,43 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         if (track) track.scrollBy({ left: dir * (track.clientWidth * 0.8), behavior: 'smooth' });
     }
 
+    let selectedHomeGenre = null;
+
+    function renderGenrePillsCarousel() {
+        const track = document.getElementById('genre-pills-track');
+        if (!track) return;
+        const genres = [...new Set(
+            ALL_MUSIC_DATA
+                .map(t => t.genre || 'Autre')
+                .filter(g => !hiddenGenres.includes(g))
+        )].sort((a, b) => a.localeCompare(b));
+
+        if (!genres.length) { track.innerHTML = ''; return; }
+
+        const allPill = `<div class="genre-pill${selectedHomeGenre === null ? ' active' : ''}" onclick="filterHomeByGenre(null)">${t('all')}</div>`;
+        const pills = genres.map(g => {
+            // Le filtre compare selectedHomeGenre à la valeur brute de t.genre :
+            // l'argument onclick doit donc rester non décodé, seul le libellé affiché
+            // passe par fixEntities().
+            const matchArg = jsAttrEscape(g);
+            const displayGenre = escapeHTML(fixEntities(g));
+            const isActive = selectedHomeGenre === g;
+            return `<div class="genre-pill${isActive ? ' active' : ''}" onclick="filterHomeByGenre('${matchArg}')">${displayGenre}</div>`;
+        }).join('');
+        track.innerHTML = allPill + pills;
+    }
+
+    function filterHomeByGenre(genre) {
+        selectedHomeGenre = genre;
+        renderGenrePillsCarousel();
+        renderHomeCarousels();
+    }
+
     function renderHomeCarousels() {
         const container = document.getElementById('home-carousels');
         if (!container) return;
-        const visible = ALL_MUSIC_DATA.filter(t => !hiddenGenres.includes(t.genre || 'Autre'));
+        let visible = ALL_MUSIC_DATA.filter(t => !hiddenGenres.includes(t.genre || 'Autre'));
+        if (selectedHomeGenre !== null) visible = visible.filter(t => (t.genre || 'Autre') === selectedHomeGenre);
         if (!visible.length) { container.innerHTML = ''; return; }
 
         // Populaire : déjà trié par play_count DESC côté API.
@@ -1394,9 +1683,9 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         const recommended = shuffleArray([...visible]).slice(0, 15);
 
         container.innerHTML =
-            renderCarouselSection('carousel-recommended', 'Recommandé pour vous', recommended) +
-            renderCarouselSection('carousel-popular', 'Populaire', popular) +
-            renderCarouselSection('carousel-hidden-gems', 'Pépites cachées', hiddenGems);
+            renderCarouselSection('carousel-recommended', t('recommended_for_you'), recommended) +
+            renderCarouselSection('carousel-popular', t('popular'), popular) +
+            renderCarouselSection('carousel-hidden-gems', t('hidden_gems'), hiddenGems);
     }
 
     const _observer = new IntersectionObserver(entries => {
@@ -1411,6 +1700,7 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         });
         _observer.observe(document.getElementById('load-more-trigger'));
         filterAndSortTracks();
+        renderGenrePillsCarousel();
         renderHomeCarousels();
         const p = new URLSearchParams(window.location.search);
         if (p.get('page')) showSection(p.get('page'), false);
@@ -1448,7 +1738,7 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         const container = document.getElementById('fp-queue-list');
         if (!container) return;
         if (!queue.length) {
-            container.innerHTML = '<p style="color:var(--text-muted);">File vide...</p>';
+            container.innerHTML = `<p style="color:var(--text-muted);">${t('queue_empty')}</p>`;
             return;
         }
         container.innerHTML = '';
@@ -1457,8 +1747,8 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
             div.innerHTML = `
                 <img src="${escapeHTML(track.cover_url)}" loading="lazy" style="width:36px;height:36px;border-radius:8px;object-fit:cover;">
                 <div style="flex:1;overflow:hidden;">
-                    <div style="font-size:.9em;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHTML(track.title)}</div>
-                    <div style="font-size:.75em;color:var(--text-muted);">${escapeHTML(track.artist)}</div>
+                    <div style="font-size:.9em;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHTML(fixEntities(track.title))}</div>
+                    <div style="font-size:.75em;color:var(--text-muted);">${escapeHTML(fixEntities(track.artist))}</div>
                 </div>
                 ${index === currentIndex ? '<span style="color:var(--accent);font-size:1.5em;">•</span>' : ''}`;
             div.onclick = () => { currentIndex = index; loadTrack(true); };
@@ -1484,7 +1774,7 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         const idList = String(ids).split(',').map(Number).filter(Boolean);
         let data = idList.map(id => ALL_MUSIC_DATA.find(t => t.id === id)).filter(Boolean);
         if (hiddenGenres.length) data = data.filter(t => !hiddenGenres.includes(t.genre || 'Autre'));
-        if (!data.length) { alert('Aucune musique disponible.'); return; }
+        if (!data.length) { alert(t('no_music_available')); return; }
         currentPlaylistId = pId; originalQueue = [...data];
         queue = isShuffle ? shuffleArray([...data]) : [...data];
         currentIndex = 0; loadTrack(true);
@@ -1497,14 +1787,14 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         track.play_count = (parseInt(track.play_count) || 0) + 1;
         const g = ALL_MUSIC_DATA.find(t => t.id == track.id); if (g) g.play_count = track.play_count;
 
-        playTitle.innerText = track.title;
+        playTitle.innerText = fixEntities(track.title);
         playCover.src       = track.cover_url;
-        playStatus.innerText = track.artist || 'Artiste inconnu';
+        playStatus.innerText = fixEntities(track.artist) || t('unknown_artist');
         updateAdaptiveTheme(track);
 
         const fpTitle = document.getElementById('fp-title');
-        fpTitle.innerHTML = `<span id="fp-title-text">${escapeHTML(track.title)}</span>`;
-        document.getElementById('fp-artist').innerText = track.artist || 'Artiste inconnu';
+        fpTitle.innerHTML = `<span id="fp-title-text">${escapeHTML(fixEntities(track.title))}</span>`;
+        document.getElementById('fp-artist').innerText = fixEntities(track.artist) || t('unknown_artist');
         document.getElementById('fp-cover').src = track.cover_url;
         document.getElementById('fp-bb-cover').src = track.cover_url;
         const bgImg = document.getElementById('fp-bg-img');
@@ -1522,7 +1812,7 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
 
         if ('mediaSession' in navigator) {
             navigator.mediaSession.metadata = new MediaMetadata({
-                title: track.title, artist: track.artist || 'Purple Music',
+                title: fixEntities(track.title), artist: fixEntities(track.artist) || 'Purple Music',
                 artwork: [{ src: track.cover_url, sizes: '96x96', type: 'image/png' }]
             });
         }
@@ -1583,7 +1873,7 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         loopMode = (loopMode + 1) % 3;
         const active = loopMode > 0;
         const single = loopMode === 2;
-        const label  = single ? 'Répéter le titre' : (active ? 'Répéter la file' : 'Lecture normale');
+        const label  = single ? t('repeat_track') : (active ? t('repeat_queue') : t('normal_playback'));
         document.querySelectorAll('#loopBtn, #fp-loopBtn').forEach(btn => {
             btn.classList.toggle('active', active);
             btn.title = label;
@@ -1646,25 +1936,25 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
 
     // ── Suppression piste / playlist (via api.php) ──────────────
     async function deleteTrack(id) {
-        if (!confirm('Supprimer cette piste ?')) return;
+        if (!confirm(t('confirm_delete_track'))) return;
         const res = await apiCall('delete_track', { track_id: id });
         if (res.status === 'success') location.reload();
-        else alert(res.message || 'Erreur lors de la suppression.');
+        else alert(res.message || t('err_delete'));
     }
     async function deletePlaylist(id) {
-        if (!confirm('Supprimer cette playlist ?')) return;
+        if (!confirm(t('confirm_delete_playlist'))) return;
         const res = await apiCall('playlist_mod', { playlist_id: id, mode: 'delete' });
         if (res.status === 'success') location.reload();
-        else alert(res.message || 'Erreur lors de la suppression.');
+        else alert(res.message || t('err_delete'));
     }
 
     // ── Upload (via api.php) ─────────────────────────────────────
     let lastUploadTime = 0;
     async function handleUploadSubmit(e) {
         e.preventDefault();
-        if (Date.now() - lastUploadTime < 15000) { alert('Patiente quelques secondes avant un nouvel upload.'); return; }
+        if (Date.now() - lastUploadTime < 15000) { alert(t('wait_before_upload')); return; }
         const musicFile = document.getElementById('upload-music').files[0];
-        if (!musicFile) { alert('Choisis un fichier audio.'); return; }
+        if (!musicFile) { alert(t('choose_audio_file')); return; }
         const fd = new FormData();
         fd.append('title',  document.getElementById('upload-title').value);
         fd.append('artist', document.getElementById('upload-artist').value);
@@ -1674,12 +1964,12 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         if (coverFile) fd.append('cover', coverFile);
 
         const btn = e.target.querySelector('button[type=submit]');
-        btn.disabled = true; const oldLabel = btn.innerText; btn.innerText = 'Envoi…';
+        btn.disabled = true; const oldLabel = btn.innerText; btn.innerText = t('uploading_ellipsis');
         lastUploadTime = Date.now();
         const res = await apiCallForm('upload', fd);
         if (res.status === 'success') { location.reload(); return; }
         btn.disabled = false; btn.innerText = oldLabel;
-        alert(res.message || "Erreur lors de l'upload.");
+        alert(res.message || t('err_upload'));
     }
 
     // ── Édition piste (via api.php) ──────────────────────────────
@@ -1694,7 +1984,7 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         if (coverFile) fd.append('new_cover', coverFile);
         const res = await apiCallForm('edit_track', fd);
         if (res.status === 'success') location.reload();
-        else alert(res.message || 'Erreur lors de la modification.');
+        else alert(res.message || t('err_edit'));
     }
 
     // ── Playlists (via api.php) ───────────────────────────────────
@@ -1712,7 +2002,7 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         try {
             if (!pid) {
                 const createRes = await apiCall('playlist_create', { name });
-                if (createRes.status !== 'success') { alert(createRes.message || 'Erreur.'); return; }
+                if (createRes.status !== 'success') { alert(createRes.message || t('err_generic')); return; }
                 const playlists = await fetch('api.php?action=playlists').then(r => r.json());
                 const mine = Array.isArray(playlists)
                     ? playlists.filter(p => p.name === name && p.creator === API_AUTH.username)
@@ -1728,7 +2018,7 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
                 const toAdd    = selectedIds.filter(id => !originalIds.includes(id));
                 const toRemove = originalIds.filter(id => !selectedIds.includes(id));
                 const renameRes = await apiCall('playlist_mod', { playlist_id: pid, mode: 'rename', new_name: name });
-                if (renameRes.status !== 'success') { alert(renameRes.message || 'Erreur.'); return; }
+                if (renameRes.status !== 'success') { alert(renameRes.message || t('err_generic')); return; }
                 for (const id of toAdd)    await apiCall('playlist_mod', { playlist_id: pid, mode: 'add', track_id: id });
                 for (const id of toRemove) await apiCall('playlist_mod', { playlist_id: pid, mode: 'remove', track_id: id });
             }
@@ -1751,11 +2041,11 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         updateSelectedCount();
     }
     function updateSelectedCount() {
-        document.getElementById('selected-count').innerText = document.querySelectorAll('.song-cb:checked').length + ' sélectionné(s)';
+        document.getElementById('selected-count').innerText = document.querySelectorAll('.song-cb:checked').length + t('selected_suffix');
     }
 
     function openCreateModal() {
-        document.getElementById('modal-playlist-title').innerText = 'Nouvelle Playlist';
+        document.getElementById('modal-playlist-title').innerText = t('new_playlist');
         document.getElementById('form-playlist-id').value = '';
         document.getElementById('form-playlist-name').value = '';
         document.getElementById('playlist-search').value = '';
@@ -1766,9 +2056,9 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
     }
 
     function openEditModal(p) {
-        document.getElementById('modal-playlist-title').innerText = 'Modifier Playlist';
+        document.getElementById('modal-playlist-title').innerText = t('edit_playlist');
         document.getElementById('form-playlist-id').value = p.id;
-        document.getElementById('form-playlist-name').value = p.name;
+        document.getElementById('form-playlist-name').value = fixEntities(p.name);
         document.getElementById('playlist-search').value = '';
         const ids = String(p.song_ids).split(',').filter(Boolean);
         editingPlaylistOriginalIds = ids;
@@ -1856,8 +2146,8 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
     //  bordures/texte via les mêmes formules HSL.
     // ===========================================================
     const THEME_PRESETS = [
-        { name: 'Site (Défaut)', base: null },
-        { name: 'Adaptatif',     base: 'adaptive' },
+        { name: t('theme_site_default'), base: null },
+        { name: t('theme_adaptive'), base: 'adaptive' },
         { name: 'White Mode',     base: '#FFFFFF' },
         { name: 'AMOLED',         base: '#000000' },
         { name: 'Vibrant Purple', base: '#4A148C' },
@@ -1912,14 +2202,17 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
     }
     function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
     function deriveAccent(hex) {
-        if (hex.toLowerCase() === '#000000') return '#ffffff';
-        if (hex.toLowerCase() === '#ffffff') return '#8e44ad';
         const { r, g, b } = hexToRgb(hex);
         let [h, s, l] = rgbToHsl(r, g, b);
         const light = l > 0.5;
+        // Base sans teinte franche (AMOLED, White Mode, gris, pochette
+        // désaturée en thème adaptatif...) : l'accent reste neutre lui aussi
+        // plutôt que de retomber sur une teinte arbitraire — l'ancien code
+        // forçait le violet ici, ce qui le faisait réapparaître dans des
+        // thèmes qui ne devraient contenir aucune trace de violet.
+        if (s < 0.08) return light ? '#3a3a3a' : '#ffffff';
         if (light) { s = clamp(s + 0.5, 0.6, 1.0); l = clamp(l - 0.4, 0.3, 0.5); }
         else       { s = clamp(s + 0.4, 0.5, 0.9); l = clamp(l + 0.5, 0.6, 0.85); }
-        if (s < 0.1) { h = 270; s = 0.6; if (light) l = 0.4; }
         return rgbToHex(...hslToRgb(h, s, l));
     }
     // --primary sert de fond de bouton avec du texte blanc dessus (.btn-primary),
@@ -1943,8 +2236,11 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
     function derivePrimary(hex) {
         const { r, g, b } = hexToRgb(hex);
         let [h, s] = rgbToHsl(r, g, b);
-        if (s < 0.12) { h = 270; s = 0.55; }
-        s = clamp(Math.max(s, 0.45), 0.45, 0.85);
+        // Même logique que deriveAccent : une base sans teinte franche donne
+        // un primary neutre (gris), jamais une teinte arbitraire plaquée
+        // dessus (l'ancien code forçait le violet via h=270 ici).
+        const neutral = s < 0.08;
+        s = neutral ? 0 : clamp(Math.max(s, 0.45), 0.45, 0.85);
         let l = 0.42;
         let candidate = rgbToHex(...hslToRgb(h, s, l));
         while (l > 0.1 && contrastRatio('#ffffff', candidate) < 4.5) {
@@ -2143,7 +2439,11 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         const cached = adaptiveColorCache.get(key);
         if (cached) { applyThemeColors(cached.base, cached.gradient2); return; }
         extractPalette(key).then(palette => {
-            const theme = paletteToTheme(palette) || { base: '#4A148C', gradient2: null };
+            // Si l'extraction échoue, retomber sur le thème du site (base:
+            // null) plutôt que sur une couleur arbitraire — sinon l'ancien
+            // violet de secours réapparaissait dans un thème pourtant
+            // supposé suivre la pochette en cours.
+            const theme = paletteToTheme(palette) || { base: null, gradient2: null };
             adaptiveColorCache.set(key, theme);
             const current = queue[currentIndex];
             if (adaptiveThemeEnabled && current && current.cover_url === key) applyThemeColors(theme.base, theme.gradient2);
@@ -2230,12 +2530,15 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         const panel = document.getElementById('lyrics-content');
         const parsed = parseLrc(lrc);
         if (!parsed.length) {
-            panel.innerHTML = `<p class="lyrics-status" style="white-space:pre-line;">${escapeHTML(lrc)}</p>`;
+            panel.innerHTML = `<p class="lyrics-status" style="white-space:pre-line;">${escapeHTML(fixEntitiesLiteral(lrc))}</p>`;
             currentParsedLyrics = [];
             return;
         }
         currentParsedLyrics = parsed;
-        panel.innerHTML = parsed.map(l => `<p class="lyric-line" data-time="${l.time}" onclick="seekLyric(${l.time})">${escapeHTML(l.text)}</p>`).join('');
+        // Contrairement à fixEntities() utilisé pour les titres/artistes, les paroles
+        // gardent le symbole "&" littéral plutôt que le mot "and"/"et" : remplacer un
+        // "&" par un mot en pleine phrase de chanson en altérerait le texte original.
+        panel.innerHTML = parsed.map(l => `<p class="lyric-line" data-time="${l.time}" onclick="seekLyric(${l.time})">${escapeHTML(fixEntitiesLiteral(l.text))}</p>`).join('');
     }
 
     async function fetchLyrics(track) {
@@ -2246,20 +2549,20 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         const cached = localStorage.getItem(cacheKey);
         if (cached !== null) { renderLyricsRaw(cached); return; }
 
-        panel.innerHTML = '<p class="lyrics-status">Chargement des paroles…</p>';
+        panel.innerHTML = `<p class="lyrics-status">${t('loading_lyrics')}</p>`;
         try {
             const url = 'https://lrclib.net/api/get?artist_name=' + encodeURIComponent(track.artist || '') + '&track_name=' + encodeURIComponent(track.title || '');
             const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
             if (myReq !== lyricsRequestId) return;
-            if (res.status === 404) { panel.innerHTML = '<p class="lyrics-status">Aucune parole disponible.</p>'; return; }
+            if (res.status === 404) { panel.innerHTML = `<p class="lyrics-status">${t('no_lyrics')}</p>`; return; }
             if (!res.ok) throw new Error('http ' + res.status);
             const json = await res.json();
             const lrc = json.syncedLyrics || json.plainLyrics || '';
-            if (!lrc) { panel.innerHTML = '<p class="lyrics-status">Aucune parole disponible.</p>'; return; }
+            if (!lrc) { panel.innerHTML = `<p class="lyrics-status">${t('no_lyrics')}</p>`; return; }
             try { localStorage.setItem(cacheKey, lrc); } catch (e) {}
             renderLyricsRaw(lrc);
         } catch (e) {
-            if (myReq === lyricsRequestId) panel.innerHTML = '<p class="lyrics-status">Erreur lors du chargement des paroles.</p>';
+            if (myReq === lyricsRequestId) panel.innerHTML = `<p class="lyrics-status">${t('err_lyrics')}</p>`;
         }
     }
 
