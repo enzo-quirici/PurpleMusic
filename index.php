@@ -324,6 +324,7 @@ $I18N = [
     'sort_alpha_desc'         => ['fr' => 'Nom (Z-A)',                      'en' => 'Name (Z-A)'],
     'sort_artist'             => ['fr' => 'Par Artiste',                    'en' => 'By artist'],
     'playlists_title'         => ['fr' => 'Tes Mixs',                       'en' => 'Your Mixes'],
+    'btn_back_library'        => ['fr' => 'Retour à la bibliothèque',       'en' => 'Back to library'],
     'created_by'              => ['fr' => 'Créé par',                       'en' => 'Created by'],
     'btn_play'                => ['fr' => '▶ Écouter',                      'en' => '▶ Play'],
     'btn_edit'                => ['fr' => 'Éditer',                         'en' => 'Edit'],
@@ -723,6 +724,24 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         .carousel-card .cc-title { font-weight:700; font-size:.9em; margin-top:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .carousel-card .cc-artist { font-size:.78em; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
+        .artist-link { cursor:pointer; }
+        .artist-link:hover { color:var(--text); text-decoration:underline; }
+        .artist-page-back { cursor:pointer; color:var(--text-muted); font-size:.9em; display:inline-flex; align-items:center; gap:6px; margin-bottom:12px; }
+        .artist-page-back:hover { color:var(--text); }
+
+        .artist-hero { position:relative; border-radius:24px; overflow:hidden; margin-bottom:22px; min-height:200px; display:flex; align-items:flex-end; padding:30px; box-sizing:border-box; box-shadow:0 10px 30px rgba(0,0,0,.2); }
+        .artist-hero-bg { position:absolute; inset:0; z-index:0; background:var(--bg-panel); }
+        .artist-hero-bg img { width:100%; height:100%; object-fit:cover; filter:blur(45px) saturate(1.4) brightness(.5); transform:scale(1.15); opacity:0; transition:opacity .6s ease; }
+        .artist-hero-bg img.loaded { opacity:1; }
+        .artist-hero-bg::after { content:''; position:absolute; inset:0; background:rgba(0,0,0,.35); }
+        .artist-hero-content { position:relative; z-index:1; display:flex; align-items:center; gap:24px; }
+        .artist-pfp { width:120px; height:120px; border-radius:50%; object-fit:cover; flex-shrink:0; box-shadow:0 8px 24px rgba(0,0,0,.4); border:4px solid rgba(255,255,255,.15); }
+        .artist-hero-info .section-title { border-left:none; padding-left:0; margin:0 0 6px; }
+        .artist-hero-info p { margin:0; color:rgba(255,255,255,.75); }
+        .artist-bio { color:var(--text-muted); font-size:.92em; line-height:1.6; margin:0 0 25px; max-width:900px; }
+        .artist-bio a { color:var(--accent); text-decoration:none; }
+        .artist-bio a:hover { text-decoration:underline; }
+
         /* Carrousel de genres (filtre les 3 carrousels du bas) */
         .genre-pill-track { display:flex; gap:10px; overflow-x:auto; scroll-behavior:smooth; padding:2px 2px 16px; scrollbar-width:thin; }
         .genre-pill { flex:0 0 auto; padding:9px 20px; border-radius:999px; background:var(--bg-panel); border:1px solid rgba(61,43,86,.5); color:var(--text-muted); font-weight:700; font-size:.88em; cursor:pointer; white-space:nowrap; transition:.2s; }
@@ -1108,6 +1127,25 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
     </div>
 </main>
 
+<main id="artist-page" style="display:none;">
+    <div class="artist-page-back" onclick="showSection('accueil')">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+        <span><?php echo htmlspecialchars(t('btn_back_library')); ?></span>
+    </div>
+    <div class="artist-hero">
+        <div class="artist-hero-bg"><img id="artist-hero-bg-img" alt="" onerror="this.onerror=null;this.src='covers/default.png'"></div>
+        <div class="artist-hero-content">
+            <img id="artist-pfp" class="artist-pfp" alt="" onerror="this.onerror=null;this.src='covers/default.png'">
+            <div class="artist-hero-info">
+                <h2 class="section-title" id="artist-page-title"></h2>
+                <p id="artist-page-count"></p>
+            </div>
+        </div>
+    </div>
+    <p class="artist-bio" id="artist-page-bio"></p>
+    <div class="track-list" id="artist-track-list"></div>
+</main>
+
 <div id="mobile-bottom-nav">
     <button class="mob-nav-item active" id="mob-nav-accueil" onclick="showSection('accueil')">
         <svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg><?php echo htmlspecialchars(t('mobnav_library')); ?>
@@ -1360,6 +1398,10 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
             normal_playback: 'Lecture normale',
             theme_site_default: 'Site (Défaut)',
             theme_adaptive: 'Adaptatif',
+            tracks_count_label: 'titre(s)',
+            loading_bio: 'Chargement de la biographie…',
+            no_bio_available: 'Aucune description disponible.',
+            wikipedia_link: 'Voir sur Wikipédia ↗',
         },
         en: {
             err_api_unreachable: 'Unable to reach api.php.',
@@ -1392,6 +1434,10 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
             normal_playback: 'Normal playback',
             theme_site_default: 'Site (Default)',
             theme_adaptive: 'Adaptive',
+            tracks_count_label: 'track(s)',
+            loading_bio: 'Loading biography…',
+            no_bio_available: 'No description available.',
+            wikipedia_link: 'View on Wikipedia ↗',
         },
     };
     function t(key) { return (I18N_STRINGS[LANG] && I18N_STRINGS[LANG][key]) || I18N_STRINGS.fr[key] || key; }
@@ -1441,7 +1487,7 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
 
     let CURRENT_VIEW_DATA = []; let renderedCount = 0; const RENDER_CHUNK = 30;
     let originalQueue = []; let queue = []; let currentIndex = 0; let loopMode = 0; let isShuffle = false;
-    let currentPlaylistId = null; let currentSection = 'accueil';
+    let currentPlaylistId = null; let currentSection = 'accueil'; let currentArtistName = null;
     let hiddenGenres = JSON.parse(localStorage.getItem('hiddenGenres') || '[]');
     let adaptiveThemeEnabled = (localStorage.getItem('theme_base') === 'adaptive');
     const adaptiveColorCache = new Map();
@@ -1524,6 +1570,7 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
     function updateUrl() {
         const params = new URLSearchParams();
         if (currentSection !== 'accueil') params.set('page', currentSection);
+        if (currentSection === 'artist-page' && currentArtistName) params.set('artist', currentArtistName);
         if (queue[currentIndex]?.id) params.set('v', queue[currentIndex].id);
         if (currentPlaylistId) params.set('list', currentPlaylistId);
         window.history.pushState({}, '', window.location.pathname + '?' + params.toString());
@@ -1539,6 +1586,57 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         renderHomeCarousels();
     }
 
+    // Sépare une chaîne "artiste1, artiste2 & artiste3" (ou avec feat./ft./x/vs)
+    // en noms d'artistes individuels, chacun pointant vers sa propre page.
+    const ARTIST_SPLIT_REGEX = /\s*,\s*|\s*&amp;\s*|\s*&\s*|\s+feat\.?\s+|\s+ft\.?\s+|\s+featuring\s+|\s+vs\.?\s+|\s+x\s+|\s+and\s+|\s+et\s+/gi;
+    function splitArtistNames(str) {
+        if (!str) return [];
+        return str.split(ARTIST_SPLIT_REGEX).map(s => s.trim()).filter(Boolean);
+    }
+
+    // Rend le champ artiste d'une piste sous forme de lien(s) cliquables :
+    // si plusieurs artistes figurent dans le tag, chacun a son propre lien
+    // vers sa page (au lieu d'un seul lien vers la chaîne complète).
+    function artistLinksHTML(rawArtist) {
+        const decoded = fixEntities(rawArtist) || t('unknown_artist');
+        const names = splitArtistNames(decoded);
+        if (names.length <= 1) {
+            return `<span class="artist-link" onclick="event.stopPropagation();showArtistPage('${jsAttrEscape(decoded)}')">${escapeHTML(decoded)}</span>`;
+        }
+        return names.map(n => `<span class="artist-link" onclick="event.stopPropagation();showArtistPage('${jsAttrEscape(n)}')">${escapeHTML(n)}</span>`).join(', ');
+    }
+
+    function trackRowInnerHTML(t, idx) {
+        const safeTitle  = escapeHTML(fixEntities(t.title));
+        const artistHTML = artistLinksHTML(t.artist);
+        // Le genre brut (non décodé) doit correspondre exactement à l'attribut
+        // value des <option> du select "Genre" de la modale d'édition
+        // (openEditTrackModal). displayGenre est la version décodée affichée
+        // dans la liste.
+        const rawGenre     = t.genre || 'Autre';
+        const displayGenre = escapeHTML(fixEntities(rawGenre));
+        const safeCover  = escapeHTML(t.cover_url);
+        const jsTitle    = jsAttrEscape(fixEntities(t.title));
+        const jsArtist   = jsAttrEscape(fixEntities(t.artist));
+        const jsGenre    = jsAttrEscape(rawGenre);
+        let editButtons  = '';
+        if (t.uploader_id == CURRENT_USER_ID || IS_ADMIN) {
+            editButtons = `
+                <button class="btn btn-outline" style="font-size:.7em;padding:6px 10px;border-radius:8px;" onclick="openEditTrackModal(${t.id},'${jsTitle}','${jsArtist}','${jsGenre}')">✎</button>
+                <button class="btn btn-danger" style="border-radius:8px;" onclick="deleteTrack(${t.id})">✕</button>`;
+        }
+        return `
+            <div class="track-index">${idx}</div>
+            <img src="${safeCover}" loading="lazy" class="mini-cover" onerror="this.onerror=null;this.src='covers/default.png'">
+            <div style="cursor:pointer;overflow:hidden;" onclick="playTrackById(${t.id})">
+                <div style="font-weight:700;font-size:1.05em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px;">${safeTitle}</div>
+                <div style="font-size:.85em;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                    ${artistHTML} <span style="opacity:.6;font-size:.9em;">• ${displayGenre} • ▶ ${t.play_count||0}</span>
+                </div>
+            </div>
+            <div style="display:flex;gap:8px;">${editButtons}</div>`;
+    }
+
     function renderTracksChunk() {
         const listContainer = document.getElementById('global-list');
         const chunk = CURRENT_VIEW_DATA.slice(renderedCount, renderedCount + RENDER_CHUNK);
@@ -1549,38 +1647,96 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         const fragment = document.createDocumentFragment();
         chunk.forEach((t, index) => {
             const idx = renderedCount + index + 1;
-            const safeTitle  = escapeHTML(fixEntities(t.title));
-            const safeArtist = escapeHTML(fixEntities(t.artist));
-            // Le genre brut (non décodé) doit correspondre exactement à l'attribut
-            // value des <option> du select "Genre" de la modale d'édition
-            // (openEditTrackModal). displayGenre est la version décodée affichée
-            // dans la liste.
-            const rawGenre     = t.genre || 'Autre';
-            const displayGenre = escapeHTML(fixEntities(rawGenre));
-            const safeCover  = escapeHTML(t.cover_url);
-            const jsTitle    = jsAttrEscape(fixEntities(t.title));
-            const jsArtist   = jsAttrEscape(fixEntities(t.artist));
-            const jsGenre    = jsAttrEscape(rawGenre);
-            let editButtons  = '';
-            if (t.uploader_id == CURRENT_USER_ID || IS_ADMIN) {
-                editButtons = `
-                    <button class="btn btn-outline" style="font-size:.7em;padding:6px 10px;border-radius:8px;" onclick="openEditTrackModal(${t.id},'${jsTitle}','${jsArtist}','${jsGenre}')">✎</button>
-                    <button class="btn btn-danger" style="border-radius:8px;" onclick="deleteTrack(${t.id})">✕</button>`;
-            }
             const div = document.createElement('div'); div.className = 'track-item';
-            div.innerHTML = `
-                <div class="track-index">${idx}</div>
-                <img src="${safeCover}" loading="lazy" class="mini-cover" onerror="this.onerror=null;this.src='covers/default.png'">
-                <div style="cursor:pointer;overflow:hidden;" onclick="playTrackById(${t.id})">
-                    <div style="font-weight:700;font-size:1.05em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px;">${safeTitle}</div>
-                    <div style="font-size:.85em;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-                        ${safeArtist} <span style="opacity:.6;font-size:.9em;">• ${displayGenre} • ▶ ${t.play_count||0}</span>
-                    </div>
-                </div>
-                <div style="display:flex;gap:8px;">${editButtons}</div>`;
+            div.innerHTML = trackRowInnerHTML(t, idx);
             fragment.appendChild(div);
         });
         listContainer.appendChild(fragment); renderedCount += chunk.length;
+    }
+
+    // ── Page artiste : liste toutes les pistes où ce nom d'artiste figure
+    // (y compris les pistes créditées à plusieurs artistes) ────────────
+    let artistBioToken = 0;
+    function showArtistPage(name, doUrl = true) {
+        closeFullPlayer();
+        currentArtistName = name;
+        const norm = name.trim().toLowerCase();
+        const tracks = ALL_MUSIC_DATA.filter(tr => splitArtistNames(fixEntities(tr.artist)).some(n => n.toLowerCase() === norm));
+
+        document.getElementById('artist-page-title').innerText = name;
+        document.getElementById('artist-page-count').innerText = tracks.length + ' ' + t('tracks_count_label');
+
+        // Pochette de la piste la plus récente (id le plus élevé, même convention
+        // que le tri "Ajouts récents") utilisée comme photo de profil et comme
+        // fond flouté de l'en-tête artiste.
+        const mostRecent = tracks.length ? tracks.reduce((a, b) => (b.id > a.id ? b : a)) : null;
+        const heroCover  = mostRecent ? mostRecent.cover_url : 'covers/default.png';
+        const pfpImg    = document.getElementById('artist-pfp');
+        const heroBgImg = document.getElementById('artist-hero-bg-img');
+        pfpImg.src = heroCover;
+        heroBgImg.classList.remove('loaded');
+        heroBgImg.onload = () => heroBgImg.classList.add('loaded');
+        heroBgImg.src = heroCover;
+
+        const listContainer = document.getElementById('artist-track-list');
+        if (!tracks.length) {
+            listContainer.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-muted);">${t('no_tracks_found')}</div>`;
+        } else {
+            listContainer.innerHTML = tracks.map((tr, i) => `<div class="track-item">${trackRowInnerHTML(tr, i + 1)}</div>`).join('');
+        }
+        fetchArtistBio(name);
+        showSection('artist-page', doUrl);
+    }
+
+    // ── Biographie Wikipedia : REST API publique (CORS ouvert), interrogée
+    // directement depuis le navigateur — n'implique aucun appel à api.php.
+    // Un jeton évite qu'une réponse tardive d'une ancienne recherche n'écrase
+    // la bio de l'artiste affiché entre-temps.
+    async function fetchArtistBio(name) {
+        const bioEl = document.getElementById('artist-page-bio');
+        const myToken = ++artistBioToken;
+        bioEl.innerText = t('loading_bio');
+        const lang = LANG === 'en' ? 'en' : 'fr';
+        try {
+            let data = await fetchWikipediaSummary(name, lang);
+            if ((!data || !data.extract) && lang !== 'en') data = await fetchWikipediaSummary(name, 'en');
+            if (myToken !== artistBioToken) return;
+            if (data && data.extract) {
+                const pageUrl = data.content_urls?.desktop?.page;
+                bioEl.innerHTML = escapeHTML(data.extract) +
+                    (pageUrl ? ` <a href="${escapeHTML(pageUrl)}" target="_blank" rel="noopener noreferrer">${escapeHTML(t('wikipedia_link'))}</a>` : '');
+            } else {
+                bioEl.innerText = t('no_bio_available');
+            }
+        } catch (e) {
+            if (myToken === artistBioToken) bioEl.innerText = t('no_bio_available');
+        }
+    }
+
+    async function fetchWikipediaSummary(name, lang) {
+        try {
+            const res = await fetch(`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(name)}`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.type !== 'disambiguation' && data.extract) return data;
+            }
+        } catch (e) { /* on retente via la recherche ci-dessous */ }
+        // Nom ambigu (page d'homonymie) ou introuvable tel quel : on cherche
+        // parmi les résultats la première page "standard" correspondante
+        // (ex. "Drake" → page d'homonymie → "Drake (musician)").
+        try {
+            const searchRes = await fetch(`https://${lang}.wikipedia.org/w/rest.php/v1/search/page?q=${encodeURIComponent(name)}&limit=5`);
+            if (!searchRes.ok) return null;
+            const searchData = await searchRes.json();
+            for (const page of (searchData.pages || [])) {
+                if (page.title.toLowerCase() === name.toLowerCase()) continue;
+                const sumRes = await fetch(`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(page.title)}`);
+                if (!sumRes.ok) continue;
+                const sumData = await sumRes.json();
+                if (sumData.type !== 'disambiguation' && sumData.extract) return sumData;
+            }
+        } catch (e) { /* pas de bio disponible */ }
+        return null;
     }
 
     function filterAndSortTracks() {
@@ -1606,12 +1762,12 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         if (!tracks.length) return '';
         const cardsHtml = tracks.map(t => {
             const safeTitle  = escapeHTML(fixEntities(t.title));
-            const safeArtist = escapeHTML(fixEntities(t.artist) || t('unknown_artist'));
+            const artistHTML = artistLinksHTML(t.artist);
             const safeCover  = escapeHTML(t.cover_url);
             return `<div class="carousel-card" onclick="playTrackById(${t.id})">
                 <div class="cc-cover-wrap"><img src="${safeCover}" loading="lazy" alt="" onerror="this.onerror=null;this.src='covers/default.png'"></div>
                 <div class="cc-title">${safeTitle}</div>
-                <div class="cc-artist">${safeArtist}</div>
+                <div class="cc-artist">${artistHTML}</div>
             </div>`;
         }).join('');
         return `<section class="carousel-section">
@@ -1703,7 +1859,8 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         renderGenrePillsCarousel();
         renderHomeCarousels();
         const p = new URLSearchParams(window.location.search);
-        if (p.get('page')) showSection(p.get('page'), false);
+        if (p.get('page') === 'artist-page' && p.get('artist')) showArtistPage(p.get('artist'), false);
+        else if (p.get('page')) showSection(p.get('page'), false);
         if (p.get('list')) currentPlaylistId = p.get('list');
         if (p.get('v'))    playTrackById(p.get('v'), false);
 
@@ -1789,12 +1946,12 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
 
         playTitle.innerText = fixEntities(track.title);
         playCover.src       = track.cover_url;
-        playStatus.innerText = fixEntities(track.artist) || t('unknown_artist');
+        playStatus.innerHTML = artistLinksHTML(track.artist);
         updateAdaptiveTheme(track);
 
         const fpTitle = document.getElementById('fp-title');
         fpTitle.innerHTML = `<span id="fp-title-text">${escapeHTML(fixEntities(track.title))}</span>`;
-        document.getElementById('fp-artist').innerText = fixEntities(track.artist) || t('unknown_artist');
+        document.getElementById('fp-artist').innerHTML = artistLinksHTML(track.artist);
         document.getElementById('fp-cover').src = track.cover_url;
         document.getElementById('fp-bb-cover').src = track.cover_url;
         const bgImg = document.getElementById('fp-bg-img');
@@ -1913,12 +2070,14 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
     };
 
     function showSection(id, doUrl = true) {
-        document.getElementById('accueil').style.display   = id === 'accueil'   ? 'block' : 'none';
-        document.getElementById('playlists').style.display = id === 'playlists' ? 'block' : 'none';
+        document.getElementById('accueil').style.display     = id === 'accueil'     ? 'block' : 'none';
+        document.getElementById('playlists').style.display   = id === 'playlists'   ? 'block' : 'none';
+        document.getElementById('artist-page').style.display = id === 'artist-page' ? 'block' : 'none';
         document.querySelectorAll('nav span').forEach(s => s.classList.remove('active'));
         document.getElementById('nav-' + id)?.classList.add('active');
         document.querySelectorAll('.mob-nav-item').forEach(s => s.classList.remove('active'));
         document.getElementById('mob-nav-' + id)?.classList.add('active');
+        if (id !== 'artist-page') currentArtistName = null;
         window.scrollTo(0, 0); currentSection = id; if (doUrl) updateUrl();
     }
 
