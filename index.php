@@ -2122,6 +2122,7 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
     };
 
     function showSection(id, doUrl = true) {
+        if (document.getElementById('full-player').classList.contains('active')) closeFullPlayer();
         ['accueil', 'playlists', 'artist-page'].forEach(sectionId => {
             const el = document.getElementById(sectionId);
             if (sectionId === id) {
