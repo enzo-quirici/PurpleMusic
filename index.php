@@ -361,14 +361,13 @@ $I18N = [
     'select_tracks_label'     => ['fr' => 'Sélectionnez les titres :',      'en' => 'Select tracks:'],
     'ready_to_play'           => ['fr' => 'Prêt à écouter',                 'en' => 'Ready to play'],
     'stopped'                 => ['fr' => 'Arrêté',                         'en' => 'Stopped'],
-    'title_minimize'          => ['fr' => 'Réduire',                        'en' => 'Minimize'],
     'title_lyrics'            => ['fr' => 'Paroles',                        'en' => 'Lyrics'],
     'title_queue'             => ['fr' => "File d'attente",                 'en' => 'Queue'],
-    'title_expand'            => ['fr' => 'Agrandir',                       'en' => 'Expand'],
     'queue_empty'             => ['fr' => 'File vide...',                   'en' => 'Queue is empty...'],
     'no_track_playing'        => ['fr' => 'Aucune piste en cours.',         'en' => 'No track playing.'],
     'normal_playback'         => ['fr' => 'Lecture normale',                'en' => 'Normal playback'],
     'selected_suffix'         => ['fr' => ' sélectionné(s)',                'en' => ' selected'],
+    'word_and'                => ['fr' => 'et',                             'en' => 'and'],
 ];
 function t(string $key): string {
     global $I18N, $LANG;
@@ -382,9 +381,11 @@ function t(string $key): string {
 // Utilisé uniquement pour le texte affiché (jamais pour les attributs value/
 // onclick qui doivent rester la valeur brute exacte pour matcher côté serveur).
 function fixEntities(string $s): string {
-    global $LANG;
     $s = str_replace('&#039;', "'", $s);
-    $s = str_replace('&amp;', $LANG === 'en' ? 'and' : 'et', $s);
+    // "&" (mot de liaison) est traduit dans la langue courante via le
+    // dictionnaire i18n (clé word_and) plutôt qu'un ternaire fr/en codé en dur,
+    // pour que l'ajout d'une nouvelle langue à $I18N suffise à la couvrir ici.
+    $s = str_replace('&amp;', t('word_and'), $s);
     return $s;
 }
 
@@ -627,6 +628,7 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
             --text:       <?php echo $color_text; ?>;
             --text-muted: <?php echo $color_text_muted; ?>;
             --border-color:  <?php echo $color_border; ?>;
+            --border-color-rgb: <?php echo hexToRgbTriplet($color_border); ?>;
             --search-bg:     <?php echo $color_search_bg; ?>;
             --header-bg:     <?php echo $color_header_bg; ?>;
             --mob-nav-bg:    <?php echo $color_mob_nav_bg; ?>;
@@ -644,10 +646,11 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         }
         * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
         body { margin:0; font-family:'Segoe UI',system-ui,-apple-system,sans-serif; background:var(--bg-dark); color:var(--text); padding-bottom:96px; padding-left:260px; padding-top:70px; overflow-x:hidden; transition:padding-left .3s cubic-bezier(.2,.8,.2,1); }
+        body.login-page { padding:0; display:flex; align-items:center; justify-content:center; min-height:100vh; }
         ::-webkit-scrollbar { width:8px; } ::-webkit-scrollbar-track { background:var(--bg-dark); } ::-webkit-scrollbar-thumb { background:var(--border-color); border-radius:var(--radius-full); } ::-webkit-scrollbar-thumb:hover { background:var(--primary); }
 
         /* Barre latérale gauche façon YouTube Music (desktop) */
-        header { display:flex; flex-direction:column; align-items:stretch; justify-content:flex-start; gap:8px; padding:25px 16px; background:var(--header-bg); backdrop-filter:blur(15px); border-right:1px solid rgba(61,43,86,.5); border-bottom:none; position:fixed; top:70px; left:0; z-index:100; width:260px; height:calc(100vh - 70px - 72px); box-sizing:border-box; overflow-y:auto; overflow-x:hidden; transition:width .3s cubic-bezier(.2,.8,.2,1),padding .3s cubic-bezier(.2,.8,.2,1); }
+        header { display:flex; flex-direction:column; align-items:stretch; justify-content:flex-start; gap:8px; padding:25px 16px; background:var(--header-bg); backdrop-filter:blur(15px); border-right:1px solid rgba(var(--border-color-rgb),.5); border-bottom:none; position:fixed; top:70px; left:0; z-index:100; width:260px; height:calc(100vh - 70px - 72px); box-sizing:border-box; overflow-y:auto; overflow-x:hidden; transition:width .3s cubic-bezier(.2,.8,.2,1),padding .3s cubic-bezier(.2,.8,.2,1); }
         nav { display:flex; flex-direction:column; gap:4px; margin-left:0; flex-grow:1; width:100%; }
         nav span { display:flex; align-items:center; gap:14px; cursor:pointer; font-weight:600; color:var(--text-muted); transition:.3s; white-space:nowrap; padding:12px 14px; border-radius:var(--radius-sm); width:100%; box-sizing:border-box; }
         .nav-icon { flex-shrink:0; }
@@ -658,7 +661,7 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         .btn-icon { flex-shrink:0; }
 
         /* Repli de la barre latérale gauche : icônes seules, libellés masqués */
-        #sidebar-toggle { position:fixed; top:96px; left:246px; z-index:150; width:28px; height:28px; border-radius:50%; background:var(--elevated-bg); border:1px solid var(--border-color); color:var(--text-muted); cursor:pointer; display:flex; align-items:center; justify-content:center; transition:left .3s cubic-bezier(.2,.8,.2,1),transform .3s cubic-bezier(.2,.8,.2,1); }
+        #sidebar-toggle { position:fixed; top:96px; left:246px; z-index:5010; width:28px; height:28px; border-radius:50%; background:var(--elevated-bg); border:1px solid var(--border-color); color:var(--text-muted); cursor:pointer; display:flex; align-items:center; justify-content:center; transition:left .3s cubic-bezier(.2,.8,.2,1),transform .3s cubic-bezier(.2,.8,.2,1); }
         #sidebar-toggle:hover { color:var(--text); border-color:var(--accent); }
         body.sidebar-collapsed { padding-left:88px; }
         body.sidebar-collapsed header { width:88px; padding-left:6px; padding-right:6px; }
@@ -682,26 +685,26 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         .lang-switch a:not(.active):hover { color:var(--text); background:rgba(255,255,255,.05); }
 
         main { padding:30px; max-width:1100px; margin:auto; }
-        .controls-container { margin-bottom:25px; }
+        .controls-container { display:flex; align-items:center; justify-content:space-between; gap:15px; margin-bottom:25px; }
         .section-title { border-left:5px solid var(--primary); padding-left:15px; margin-bottom:20px; font-size:1.5em; border-radius:2px; }
         .search-row { display:flex; align-items:center; gap:15px; width:100%; }
         .search-container { flex-grow:1; position:relative; }
-        .search-input { width:100%; height:50px; padding:0 25px; border-radius:50px; border:1px solid rgba(61,43,86,.5); background:var(--search-bg); color:var(--text); font-size:1em; outline:none; transition:all .3s; box-shadow:0 4px 10px rgba(0,0,0,.2); }
+        .search-input { width:100%; height:50px; padding:0 25px; border-radius:50px; border:1px solid rgba(var(--border-color-rgb),.5); background:var(--search-bg); color:var(--text); font-size:1em; outline:none; transition:all .3s; box-shadow:0 4px 10px rgba(0,0,0,.2); }
         .search-input:focus { border-color:var(--accent); background:var(--elevated-bg); box-shadow:0 0 0 3px rgba(var(--accent-rgb),.2); }
         .search-input::placeholder { color:var(--text-muted); }
 
         /* Barre supérieure du contenu : nom de l'app + recherche, toujours visible (sticky) */
-        #content-topbar { position:fixed; top:0; left:0; width:100%; height:70px; z-index:110; box-sizing:border-box; display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:25px; padding:0 30px; background:var(--header-bg); backdrop-filter:blur(15px); border-bottom:1px solid rgba(61,43,86,.5); }
+        #content-topbar { position:fixed; top:0; left:0; width:100%; height:70px; z-index:110; box-sizing:border-box; display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:25px; padding:0 30px; background:var(--header-bg); backdrop-filter:blur(15px); border-bottom:1px solid rgba(var(--border-color-rgb),.5); }
         .topbar-appname { grid-column:1; justify-self:start; font-weight:800; font-size:1.3em; color:var(--accent); white-space:nowrap; letter-spacing:-.5px; flex-shrink:0; }
         .topbar-search { grid-column:2; justify-self:center; width:480px; max-width:90vw; }
         .topbar-search .search-input { height:44px; }
 
         .filter-wrapper { position:relative; width:50px; height:50px; flex-shrink:0; }
-        .filter-icon-visual { width:100%; height:100%; background:var(--search-bg); border:1px solid rgba(61,43,86,.5); border-radius:50%; display:flex; align-items:center; justify-content:center; color:var(--accent); box-shadow:0 4px 10px rgba(0,0,0,.2); transition:.3s; }
+        .filter-icon-visual { width:100%; height:100%; background:var(--search-bg); border:1px solid rgba(var(--border-color-rgb),.5); border-radius:50%; display:flex; align-items:center; justify-content:center; color:var(--accent); box-shadow:0 4px 10px rgba(0,0,0,.2); transition:.3s; }
         .filter-select-overlay { position:absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer; appearance:none; -webkit-appearance:none; z-index:10; }
         .filter-wrapper:hover .filter-icon-visual { border-color:var(--accent); background:var(--elevated-bg); transform:translateY(-2px); }
 
-        .track-list { background:var(--bg-panel); border-radius:24px; overflow:hidden; border:1px solid #2d2444; min-height:200px; box-shadow:0 10px 30px rgba(0,0,0,.2); }
+        .track-list { background:var(--bg-panel); border-radius:24px; overflow:hidden; border:1px solid var(--border-color); min-height:200px; box-shadow:0 10px 30px rgba(0,0,0,.2); }
         .track-item { display:grid; grid-template-columns:40px 50px 1fr auto; align-items:center; padding:15px 25px; border-bottom:1px solid rgba(255,255,255,.03); gap:20px; transition:background .2s; }
         .track-item:last-child { border-bottom:none; }
         .track-item:hover { background:rgba(255,255,255,.07); }
@@ -714,9 +717,13 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         .carousel-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:15px; gap:15px; }
         .carousel-title { font-size:1.3em; font-weight:800; margin:0; border-left:5px solid var(--primary); padding-left:15px; border-radius:2px; }
         .carousel-nav { display:flex; gap:8px; flex-shrink:0; }
-        .carousel-nav-btn { background:var(--bg-panel); border:1px solid rgba(61,43,86,.5); color:var(--text-muted); width:34px; height:34px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:.2s; }
+        .carousel-nav-btn { background:var(--bg-panel); border:1px solid rgba(var(--border-color-rgb),.5); color:var(--text-muted); width:34px; height:34px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:.2s; }
         .carousel-nav-btn:hover { color:var(--text); border-color:var(--accent); }
-        .carousel-track { display:flex; gap:16px; overflow-x:auto; scroll-snap-type:x proximity; scroll-behavior:smooth; padding:2px 2px 12px; scrollbar-width:thin; }
+        .carousel-track { display:flex; gap:16px; overflow-x:auto; scroll-snap-type:x proximity; scroll-behavior:smooth; padding:2px 2px 12px; scrollbar-width:thin; scrollbar-color:var(--border-color) transparent; }
+        .carousel-track::-webkit-scrollbar { height:6px; }
+        .carousel-track::-webkit-scrollbar-track { background:transparent; }
+        .carousel-track::-webkit-scrollbar-thumb { background:var(--border-color); border-radius:var(--radius-full); }
+        .carousel-track::-webkit-scrollbar-thumb:hover { background:var(--primary); }
         .carousel-card { flex:0 0 160px; width:160px; min-width:0; scroll-snap-align:start; cursor:pointer; }
         .carousel-card .cc-cover-wrap { position:relative; }
         .carousel-card img { width:160px; height:160px; border-radius:12px; object-fit:cover; box-shadow:0 8px 20px rgba(0,0,0,.3); transition:transform .2s; display:block; }
@@ -743,13 +750,17 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         .artist-bio a:hover { text-decoration:underline; }
 
         /* Carrousel de genres (filtre les 3 carrousels du bas) */
-        .genre-pill-track { display:flex; gap:10px; overflow-x:auto; scroll-behavior:smooth; padding:2px 2px 16px; scrollbar-width:thin; }
-        .genre-pill { flex:0 0 auto; padding:9px 20px; border-radius:999px; background:var(--bg-panel); border:1px solid rgba(61,43,86,.5); color:var(--text-muted); font-weight:700; font-size:.88em; cursor:pointer; white-space:nowrap; transition:.2s; }
+        .genre-pill-track { display:flex; gap:10px; overflow-x:auto; scroll-behavior:smooth; padding:2px 2px 16px; scrollbar-width:thin; scrollbar-color:var(--border-color) transparent; }
+        .genre-pill-track::-webkit-scrollbar { height:6px; }
+        .genre-pill-track::-webkit-scrollbar-track { background:transparent; }
+        .genre-pill-track::-webkit-scrollbar-thumb { background:var(--border-color); border-radius:var(--radius-full); }
+        .genre-pill-track::-webkit-scrollbar-thumb:hover { background:var(--primary); }
+        .genre-pill { flex:0 0 auto; padding:9px 20px; border-radius:999px; background:var(--bg-panel); border:1px solid rgba(var(--border-color-rgb),.5); color:var(--text-muted); font-weight:700; font-size:.88em; cursor:pointer; white-space:nowrap; transition:.2s; }
         .genre-pill:hover { color:var(--text); border-color:var(--accent); }
         .genre-pill.active { background:var(--primary); border-color:var(--primary); color:#fff; }
 
         .playlist-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:25px; }
-        .playlist-card { background:var(--bg-panel); border-radius:24px; padding:25px; border:1px solid rgba(61,43,86,.5); transition:transform .3s,box-shadow .3s; }
+        .playlist-card { background:var(--bg-panel); border-radius:24px; padding:25px; border:1px solid rgba(var(--border-color-rgb),.5); transition:transform .3s,box-shadow .3s; }
         .playlist-card:hover { transform:translateY(-5px); box-shadow:0 15px 30px rgba(0,0,0,.4); border-color:var(--primary); }
 
         .queue-item { display:flex; align-items:center; gap:12px; padding:10px; border-radius:12px; margin-bottom:8px; cursor:pointer; border:1px solid transparent; transition:.2s; }
@@ -761,7 +772,7 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
            transport+temps à gauche, pochette/titre centrés, volume+options à
            droite — identique en mode normal (#player-bar) et plein écran
            (.fp-bottombar), qui partagent les mêmes classes .pb-*. */
-        #player-bar { position:fixed; bottom:0; left:0; width:100%; height:72px; background:var(--player-bg); backdrop-filter:blur(20px) saturate(180%); padding:0 24px; border-radius:0; display:grid; grid-template-columns:1fr auto 1fr; align-items:center; column-gap:20px; z-index:1000; border-top:1px solid rgba(255,255,255,.1); box-shadow:0 -4px 20px rgba(0,0,0,.3); box-sizing:border-box; }
+        #player-bar { position:fixed; bottom:0; left:0; width:100%; height:72px; background:var(--player-bg); backdrop-filter:blur(20px) saturate(180%); padding:0 24px; border-radius:0; display:grid; grid-template-columns:1fr auto 1fr; align-items:center; column-gap:20px; z-index:1000; border-top:1px solid rgba(255,255,255,.1); box-shadow:0 -4px 20px rgba(0,0,0,.3); box-sizing:border-box; cursor:pointer; }
         /* Le lecteur plein écran a sa propre barre du bas (.fp-bottombar) qui
            occupe exactement le même rectangle ; sans cette règle, la barre
            mini restait quand même affichée dessous et, comme .fp-bottombar
@@ -779,8 +790,9 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         .progress-bg { background:rgba(255,255,255,.1); height:6px; border-radius:10px; cursor:pointer; position:relative; overflow:hidden; }
         .progress-fill { background:linear-gradient(90deg,var(--primary),var(--accent)); height:100%; width:0%; border-radius:10px; }
         .control-btn { background:none; border:none; color:var(--player-text); cursor:pointer; opacity:.8; transition:.2s; padding:8px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
-        .control-btn svg { width:20px; height:20px; fill:var(--player-text); display:block; }
+        .control-btn svg { width:20px; height:20px; fill:var(--player-text); display:block; transition:transform .15s ease; }
         .control-btn:hover { background:rgba(255,255,255,.1); opacity:1; }
+        .control-btn:active svg { transform:scale(.85); }
         .control-btn.active { color:var(--accent); opacity:1; position:relative; }
         .control-btn.active svg { fill:var(--accent); }
         .control-btn.active::after { content:''; position:absolute; bottom:0; left:50%; transform:translateX(-50%); width:4px; height:4px; background:var(--accent); border-radius:50%; }
@@ -788,14 +800,16 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         .loop-badge.show { display:flex; }
         #masterPlay { background:white; border:none; width:38px; height:38px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:transform .2s,box-shadow .2s; box-shadow:0 0 20px rgba(255,255,255,.3); flex-shrink:0; }
         #masterPlay:hover { transform:scale(1.1); box-shadow:0 0 30px rgba(255,255,255,.5); }
+        #masterPlay:active { transform:scale(.9); }
         #masterPlay svg { fill:#0f0c1d; width:18px; height:18px; }
         .volume-container { display:flex; align-items:center; gap:8px; width:100px; }
         input[type=range].vol-slider { -webkit-appearance:none; width:100%; height:4px; background:linear-gradient(90deg,var(--accent) 100%,rgba(255,255,255,.2) 100%); border-radius:5px; outline:none; cursor:pointer; }
         input[type=range].vol-slider::-webkit-slider-thumb { -webkit-appearance:none; width:12px; height:12px; background:#fff; border-radius:50%; cursor:pointer; transition:.2s; }
 
-        .modal { display:none; position:fixed; z-index:2000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,.6); backdrop-filter:blur(8px); }
-        .modal-content { background:var(--modal-bg); margin:5% auto; padding:30px; width:90%; max-width:550px; border-radius:28px; border:1px solid rgba(255,255,255,.1); box-shadow:0 25px 80px rgba(0,0,0,.5); max-height:85vh; overflow-y:auto; animation:modalPop .3s cubic-bezier(.175,.885,.32,1.275); }
-        @keyframes modalPop { from{transform:scale(.9);opacity:0} to{transform:scale(1);opacity:1} }
+        .modal { display:none; position:fixed; z-index:2000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,.6); backdrop-filter:blur(8px); opacity:0; transition:opacity .25s ease; }
+        .modal.show { opacity:1; }
+        .modal-content { background:var(--modal-bg); margin:5% auto; padding:30px; width:90%; max-width:550px; border-radius:28px; border:1px solid rgba(255,255,255,.1); box-shadow:0 25px 80px rgba(0,0,0,.5); max-height:85vh; overflow-y:auto; transform:scale(.9); opacity:0; transition:transform .25s cubic-bezier(.175,.885,.32,1.275),opacity .25s ease; }
+        .modal.show .modal-content { transform:scale(1); opacity:1; }
 
         input[type=text],input[type=password],input[type=file],select { width:100%; padding:14px; margin:10px 0 20px 0; background:var(--input-bg); border:1px solid var(--border-color); color:var(--text); border-radius:12px; outline:none; transition:.3s; }
         input[type=text]:focus,input[type=password]:focus,select:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(var(--primary-rgb),.2); }
@@ -840,6 +854,10 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
            reste visible à gauche (le lecteur ne recouvre que la zone de contenu). */
         #full-player { position:fixed; top:100%; left:260px; width:calc(100% - 260px); height:calc(100% - 70px); background:radial-gradient(circle at top right,var(--fp-gradient-1),var(--fp-gradient-2)); z-index:5000; transition:top .4s cubic-bezier(.2,.8,.2,1),left .3s cubic-bezier(.2,.8,.2,1),width .3s cubic-bezier(.2,.8,.2,1); display:flex; flex-direction:column; box-sizing:border-box; color:var(--player-text); overflow:hidden; }
         #full-player.active { top:70px; }
+        /* Pendant l'animation de fermeture, on repasse sous #player-bar (z-index
+           900 < 1000) pour que le panneau glisse "sous" la barre de lecture
+           mini au lieu de la recouvrir pendant sa descente hors écran. */
+        #full-player.closing { z-index:900; }
         body.sidebar-collapsed #full-player { left:88px; width:calc(100% - 88px); }
 
         /* Fond ambiant : la pochette de la piste en cours, floutée et assombrie,
@@ -850,8 +868,7 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         #fp-bg-img.loaded { opacity:1; }
         #fp-bg::after { content:''; position:absolute; inset:0; background:rgba(0,0,0,.2); }
 
-        .fp-close-btn, .fp-mobile-tabs-toggle .fp-btn { background:rgba(0,0,0,.3); border:none; cursor:pointer; padding:10px; border-radius:50%; display:flex; }
-        .fp-close-btn { position:absolute; top:20px; left:20px; z-index:10; }
+        .fp-mobile-tabs-toggle .fp-btn { background:rgba(0,0,0,.3); border:none; cursor:pointer; padding:10px; border-radius:50%; display:flex; }
         .fp-mobile-tabs-toggle { display:none; position:absolute; top:20px; right:20px; z-index:10; gap:8px; }
         .fp-btn.active { background:rgba(var(--primary-rgb),.6); }
         .fp-body, .fp-bottombar { position:relative; z-index:1; }
@@ -877,7 +894,7 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
            pour occuper toute la largeur de l'écran, exactement comme #player-bar
            en mode normal. Cachée par défaut ; affichée uniquement quand le lecteur
            plein écran est actif, via le sélecteur #full-player.active ci-dessous. */
-        .fp-bottombar { position:fixed; left:0; bottom:0; width:100%; height:72px; display:none; grid-template-columns:1fr auto 1fr; align-items:center; column-gap:20px; padding:0 24px; border-top:1px solid rgba(255,255,255,.1); background:var(--player-bg); backdrop-filter:blur(20px) saturate(180%); box-sizing:border-box; z-index:5001; }
+        .fp-bottombar { position:fixed; left:0; bottom:0; width:100%; height:72px; display:none; grid-template-columns:1fr auto 1fr; align-items:center; column-gap:20px; padding:0 24px; border-top:1px solid rgba(255,255,255,.1); background:var(--player-bg); backdrop-filter:blur(20px) saturate(180%); box-sizing:border-box; z-index:5001; cursor:pointer; }
         #full-player.active .fp-bottombar { display:grid; }
         .fp-bb-track { display:flex; align-items:center; gap:12px; justify-self:center; max-width:320px; min-width:0; overflow:hidden; }
         .fp-bb-track img { width:44px; height:44px; border-radius:8px; object-fit:cover; flex-shrink:0; box-shadow:0 4px 10px rgba(0,0,0,.3); }
@@ -886,6 +903,11 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         #fp-title span { display:inline-block; }
         .scrolling-active { padding-left:100%; animation:marquee 12s linear infinite; }
         @keyframes marquee { 0%{transform:translate(0,0)} 100%{transform:translate(-100%,0)} }
+
+        .view-fade { animation:viewFadeIn .35s cubic-bezier(.2,.8,.2,1); }
+        @keyframes viewFadeIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+        .track-item { animation:trackFadeIn .3s cubic-bezier(.2,.8,.2,1) backwards; }
+        @keyframes trackFadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
         #fp-artist { font-size:.8em; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .fp-bb-play svg { width:18px !important; height:18px !important; }
 
@@ -920,7 +942,7 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
             .pb-transport { order:2; }
             .pb-right { display:contents; }
             #masterPlay { width:45px; height:45px; }
-            .volume-container, .pb-expand { display:none; }
+            .volume-container { display:none; }
             #loopBtn, #shuffleBtn, #fp-loopBtn, #fp-shuffleBtn { order:3; }
             .modal-content { width:90%; margin:8% auto; padding:25px; }
             .settings-grid { grid-template-columns:1fr; }
@@ -939,14 +961,14 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         }
     </style>
 </head>
-<body>
+<body<?php echo !$user_id ? ' class="login-page"' : ''; ?>>
 
 <?php if (!$user_id): ?>
 <div class="lang-switch" style="position:fixed;top:20px;right:20px;">
     <a href="?setlang=fr" class="<?php echo $LANG === 'fr' ? 'active' : ''; ?>">FR</a>
     <a href="?setlang=en" class="<?php echo $LANG === 'en' ? 'active' : ''; ?>">EN</a>
 </div>
-<div style="max-width:350px;width:90%;margin:100px auto;text-align:center;">
+<div style="max-width:350px;width:90%;text-align:center;">
     <div class="logo" style="font-size:3em;margin-bottom:30px;"><?php echo htmlspecialchars($site_name); ?></div>
     <form method="post">
         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
@@ -990,10 +1012,6 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
             <svg class="btn-icon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M19.4 13c0-.3.1-.6.1-1s0-.7-.1-1l2.1-1.7c.2-.2.2-.4.1-.6l-2-3.5c-.1-.2-.3-.3-.6-.2l-2.5 1c-.5-.4-1.1-.7-1.7-1l-.4-2.7c0-.2-.2-.4-.5-.4h-4c-.3 0-.5.2-.5.4l-.4 2.7c-.6.2-1.2.6-1.7 1l-2.5-1c-.2-.1-.5 0-.6.2l-2 3.5c-.1.2-.1.5.1.6L4.6 11c-.1.3-.1.6-.1 1s0 .7.1 1l-2.1 1.7c-.2.2-.2.4-.1.6l2 3.5c.1.2.3.3.6.2l2.5-1c.5.4 1.1.7 1.7 1l.4 2.7c0 .2.2.4.5.4h4c.3 0 .5-.2.5-.4l.4-2.7c.6-.2 1.2-.6 1.7-1l2.5 1c.2.1.5 0 .6-.2l2-3.5c.1-.2.1-.5-.1-.6L19.4 13zM12 15.5c-1.9 0-3.5-1.6-3.5-3.5s1.6-3.5 3.5-3.5 3.5 1.6 3.5 3.5-1.6 3.5-3.5 3.5z"/></svg>
             <span class="btn-label"><?php echo htmlspecialchars(t('header_settings')); ?></span>
         </button>
-        <a href="?logout=1" class="btn btn-labeled" style="color:var(--text-muted);" title="<?php echo htmlspecialchars(t('header_logout')); ?>">
-            <svg class="btn-icon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
-            <span class="btn-label"><?php echo htmlspecialchars(t('header_logout')); ?></span>
-        </a>
     </div>
 </header>
 <button id="sidebar-toggle" onclick="toggleSidebar()" title="<?php echo htmlspecialchars(t('sidebar_toggle_title')); ?>">
@@ -1087,8 +1105,8 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
     <div class="genre-pill-track" id="genre-pills-track"></div>
     <div id="home-carousels"></div>
     <div class="controls-container">
-        <h2 class="section-title"><?php echo htmlspecialchars(t('section_all_tracks')); ?></h2>
-        <div class="search-row" style="justify-content:flex-end;">
+        <h2 class="section-title" style="margin-bottom:0;"><?php echo htmlspecialchars(t('section_all_tracks')); ?></h2>
+        <div class="search-row" style="width:auto;justify-content:flex-end;">
             <div class="filter-wrapper" title="<?php echo htmlspecialchars(t('sort_title')); ?>">
                 <div class="filter-icon-visual">
                     <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M3 4c0-.55.45-1 1-1h10c.55 0 1 .45 1 1v1.5c0 .28-.11.53-.3.71L10 10.9v5.2c0 .28-.11.53-.29.71l-2 2c-.18.18-.43.29-.71.29s-.53-.11-.71-.29A.996.996 0 0 1 6 18.1v-7.2L3.3 6.21A.996.996 0 0 1 3 5.5V4z"/><rect x="16" y="5" width="6" height="2" rx="1"/><rect x="16" y="11" width="6" height="2" rx="1"/><rect x="16" y="17" width="6" height="2" rx="1"/></svg>
@@ -1184,6 +1202,10 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
     </div>
 
     <button class="btn btn-outline" style="width:100%;justify-content:center;margin-bottom:12px;" onclick="closeModal('settingsModal');openModal('equalizerModal');renderEqSliders();"><?php echo htmlspecialchars(t('settings_open_eq')); ?></button>
+    <a href="?logout=1" class="btn btn-outline" style="width:100%;justify-content:center;margin-bottom:12px;color:var(--text-muted);">
+        <svg class="btn-icon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
+        <?php echo htmlspecialchars(t('header_logout')); ?>
+    </a>
     <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="closeModal('settingsModal')"><?php echo htmlspecialchars(t('btn_close')); ?></button>
 </div></div>
 
@@ -1283,7 +1305,7 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
 </div></div>
 
 <!-- Player -->
-<div id="player-bar">
+<div id="player-bar" onclick="handlePlayerBarClick(event)">
     <div class="progress-bg pb-seek" id="progress-area"><div class="progress-fill" id="progress-bar"></div></div>
     <div class="pb-transport">
         <button class="control-btn" onclick="prevTrack()"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button>
@@ -1291,7 +1313,7 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         <button class="control-btn" onclick="nextTrack()"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
         <div class="pb-time"><span id="curr-time">0:00</span><span class="pb-time-sep">/</span><span id="total-time">0:00</span></div>
     </div>
-    <div class="player-info" onclick="openSmartPlayer()">
+    <div class="player-info">
         <img src="covers/<?php echo htmlspecialchars($default_cover); ?>" id="player-cover" loading="lazy">
         <div style="overflow:hidden;flex:1;">
             <div id="play-title" style="font-weight:700;font-size:.95em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><?php echo htmlspecialchars(t('ready_to_play')); ?></div>
@@ -1305,13 +1327,11 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         </div>
         <button class="control-btn" id="loopBtn" onclick="toggleLoop()" title="<?php echo htmlspecialchars(t('normal_playback')); ?>"><svg viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg><span class="loop-badge">1</span></button>
         <button class="control-btn" id="shuffleBtn" onclick="toggleShuffle()"><svg viewBox="0 0 24 24"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg></button>
-        <button class="control-btn pb-expand" onclick="openSmartPlayer()" title="<?php echo htmlspecialchars(t('title_expand')); ?>"><svg viewBox="0 0 24 24"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg></button>
     </div>
 </div>
 
 <div id="full-player">
     <div id="fp-bg"><img id="fp-bg-img" alt=""></div>
-    <button class="fp-close-btn" onclick="closeFullPlayer()" title="<?php echo htmlspecialchars(t('title_minimize')); ?>"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:var(--player-text);"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg></button>
     <div class="fp-mobile-tabs-toggle">
         <button class="fp-btn" id="lyricsBtn" onclick="toggleFpTab('lyrics')" title="<?php echo htmlspecialchars(t('title_lyrics')); ?>"><svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:var(--player-text);"><path d="M20 2H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h4l4 4 4-4h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h9v2H6V9zm6 5H6v-2h6v2zm5-6H6V6h11v2z"/></svg></button>
         <button class="fp-btn" id="fpQueueBtn" onclick="toggleFpTab('queue')" title="<?php echo htmlspecialchars(t('title_queue')); ?>"><svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:var(--player-text);"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg></button>
@@ -1336,7 +1356,7 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
             </div>
         </div>
     </div>
-    <div class="fp-bottombar">
+    <div class="fp-bottombar" onclick="handlePlayerBarClick(event)">
         <div class="progress-bg pb-seek" id="fp-progress-area"><div class="progress-fill" id="fp-progress-bar"></div></div>
         <div class="pb-transport">
             <button class="control-btn" onclick="prevTrack()"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button>
@@ -1387,6 +1407,7 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
             err_edit: 'Erreur lors de la modification.',
             err_generic: 'Erreur.',
             selected_suffix: ' sélectionné(s)',
+            word_and: 'et',
             new_playlist: 'Nouvelle Playlist',
             edit_playlist: 'Modifier Playlist',
             no_music_available: 'Aucune musique disponible.',
@@ -1423,6 +1444,7 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
             err_edit: 'Error while editing.',
             err_generic: 'Error.',
             selected_suffix: ' selected',
+            word_and: 'and',
             new_playlist: 'New playlist',
             edit_playlist: 'Edit playlist',
             no_music_available: 'No music available.',
@@ -1530,12 +1552,14 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
     // ce correctif, escapeHTML() les ré-échapperait une seconde fois et le
     // navigateur afficherait le texte brut "&amp;"/"&#039;" au lieu du
     // caractère voulu. Pour l'affichage courant (titres, listes...), "&amp;"
-    // devient le mot "and"/"et" selon la langue ; pour les paroles, on
-    // restitue plutôt le symbole "&" littéral pour ne pas altérer le texte
-    // de la chanson.
+    // devient le mot de liaison ("and"/"et"/...) traduit via t('word_and') —
+    // piocher dans le dictionnaire i18n plutôt qu'un ternaire fr/en codé en
+    // dur permet à une langue ajoutée plus tard d'être couverte automatiquement ;
+    // pour les paroles, on restitue plutôt le symbole "&" littéral pour ne pas
+    // altérer le texte de la chanson.
     function fixEntities(str) {
         if (str == null) return str;
-        return str.toString().split('&#039;').join("'").split('&amp;').join(LANG === 'en' ? 'and' : 'et');
+        return str.toString().split('&#039;').join("'").split('&amp;').join(t('word_and'));
     }
     function fixEntitiesLiteral(str) {
         if (str == null) return str;
@@ -1648,6 +1672,7 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         chunk.forEach((t, index) => {
             const idx = renderedCount + index + 1;
             const div = document.createElement('div'); div.className = 'track-item';
+            div.style.animationDelay = (Math.min(index, 14) * 18) + 'ms';
             div.innerHTML = trackRowInnerHTML(t, idx);
             fragment.appendChild(div);
         });
@@ -1682,7 +1707,7 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         if (!tracks.length) {
             listContainer.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-muted);">${t('no_tracks_found')}</div>`;
         } else {
-            listContainer.innerHTML = tracks.map((tr, i) => `<div class="track-item">${trackRowInnerHTML(tr, i + 1)}</div>`).join('');
+            listContainer.innerHTML = tracks.map((tr, i) => `<div class="track-item" style="animation-delay:${Math.min(i, 14) * 18}ms">${trackRowInnerHTML(tr, i + 1)}</div>`).join('');
         }
         fetchArtistBio(name);
         showSection('artist-page', doUrl);
@@ -1886,10 +1911,37 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
     }
     if (localStorage.getItem('sidebar_collapsed') === '1') document.body.classList.add('sidebar-collapsed');
     function openSmartPlayer() {
-        document.getElementById('full-player').classList.add('active');
+        const fp = document.getElementById('full-player');
+        fp.classList.remove('closing');
+        fp.classList.add('active');
         document.body.style.overflow = 'hidden';
     }
-    function closeFullPlayer() { document.getElementById('full-player').classList.remove('active'); document.body.style.overflow = 'auto'; }
+    function closeFullPlayer() {
+        const fp = document.getElementById('full-player');
+        // Passe sous #player-bar (voir règle .closing) le temps que l'animation
+        // de descente se termine, puis revient au z-index normal pour la
+        // prochaine ouverture.
+        fp.classList.add('closing');
+        fp.classList.remove('active');
+        document.body.style.overflow = 'auto';
+        fp.addEventListener('transitionend', function onEnd(e) {
+            if (e.propertyName !== 'top') return;
+            fp.classList.remove('closing');
+            fp.removeEventListener('transitionend', onEnd);
+        });
+    }
+    function handlePlayerBarClick(e) {
+        // On utilise composedPath() plutôt que e.target.closest() : certains
+        // boutons (masterPlay) remplacent leur propre innerHTML (icône play/
+        // pause) au clic, ce qui détache le noeud cible du DOM avant que
+        // l'évènement ne remonte jusqu'ici — closest() échouerait alors à
+        // retrouver le <button> ancêtre et déclencherait le toggle à tort.
+        const path = e.composedPath ? e.composedPath() : [e.target];
+        const hitsControl = path.some(el => el.nodeType === 1 && (el.tagName === 'BUTTON' || el.tagName === 'INPUT' || (el.classList && el.classList.contains('pb-seek'))));
+        if (hitsControl) return;
+        if (document.getElementById('full-player').classList.contains('active')) closeFullPlayer();
+        else openSmartPlayer();
+    }
 
     function updateQueueUI() {
         const container = document.getElementById('fp-queue-list');
@@ -2070,9 +2122,17 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
     };
 
     function showSection(id, doUrl = true) {
-        document.getElementById('accueil').style.display     = id === 'accueil'     ? 'block' : 'none';
-        document.getElementById('playlists').style.display   = id === 'playlists'   ? 'block' : 'none';
-        document.getElementById('artist-page').style.display = id === 'artist-page' ? 'block' : 'none';
+        ['accueil', 'playlists', 'artist-page'].forEach(sectionId => {
+            const el = document.getElementById(sectionId);
+            if (sectionId === id) {
+                el.style.display = 'block';
+                el.classList.remove('view-fade');
+                void el.offsetWidth;
+                el.classList.add('view-fade');
+            } else {
+                el.style.display = 'none';
+            }
+        });
         document.querySelectorAll('nav span').forEach(s => s.classList.remove('active'));
         document.getElementById('nav-' + id)?.classList.add('active');
         document.querySelectorAll('.mob-nav-item').forEach(s => s.classList.remove('active'));
@@ -2081,8 +2141,16 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         window.scrollTo(0, 0); currentSection = id; if (doUrl) updateUrl();
     }
 
-    function openModal(id)  { document.getElementById(id).style.display = 'block'; }
-    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+    function openModal(id) {
+        const modal = document.getElementById(id);
+        modal.style.display = 'block';
+        requestAnimationFrame(() => modal.classList.add('show'));
+    }
+    function closeModal(id) {
+        const modal = document.getElementById(id);
+        modal.classList.remove('show');
+        setTimeout(() => { if (!modal.classList.contains('show')) modal.style.display = 'none'; }, 250);
+    }
 
     function openEditTrackModal(id, title, artist, genre) {
         document.getElementById('edit-track-id').value     = id;
@@ -2440,7 +2508,7 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         return rgbToHex(...hslToRgb(h, s, l));
     }
 
-    const THEME_VARS = ['--bg-dark','--bg-panel','--primary','--accent','--primary-rgb','--accent-rgb','--text','--text-muted','--border-color','--search-bg','--header-bg','--mob-nav-bg','--player-bg','--fp-gradient-1','--fp-gradient-2','--modal-bg','--input-bg','--elevated-bg','--player-text'];
+    const THEME_VARS = ['--bg-dark','--bg-panel','--primary','--accent','--primary-rgb','--accent-rgb','--text','--text-muted','--border-color','--border-color-rgb','--search-bg','--header-bg','--mob-nav-bg','--player-bg','--fp-gradient-1','--fp-gradient-2','--modal-bg','--input-bg','--elevated-bg','--player-text'];
     // Applique les variables CSS calculées à partir d'une couleur de base, sans
     // toucher au localStorage — utilisé aussi bien par un thème statique choisi
     // par l'utilisateur que par le mode adaptatif (une couleur par morceau).
@@ -2460,6 +2528,7 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         const elevated = deriveElevated(baseHex, 3);
         const { r: pr, g: pg, b: pb } = hexToRgb(primary);
         const { r: ar, g: ag, b: ab } = hexToRgb(accent);
+        const { r: br, g: bg2, b: bb } = hexToRgb(border);
         style.setProperty('--bg-dark', baseHex);
         style.setProperty('--bg-panel', panel);
         style.setProperty('--primary', primary);
@@ -2469,6 +2538,7 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         style.setProperty('--text', text);
         style.setProperty('--text-muted', muted);
         style.setProperty('--border-color', border);
+        style.setProperty('--border-color-rgb', `${br},${bg2},${bb}`);
         style.setProperty('--search-bg', panel);
         style.setProperty('--header-bg', hexToRgba(panel, 0.85));
         style.setProperty('--mob-nav-bg', hexToRgba(panel, 0.95));
