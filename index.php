@@ -617,6 +617,10 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title><?php echo htmlspecialchars($site_name); ?></title>
     <link rel="icon" href="<?php echo htmlspecialchars($favicon_file); ?>?v=<?php echo time(); ?>">
+    <meta property="og:title" content="<?php echo htmlspecialchars($site_name); ?>">
+    <meta property="og:description" content="Self hosted music platform.">
+    <meta property="og:image" content="<?php echo htmlspecialchars($favicon_file); ?>">
+    <meta property="og:type" content="website">
     <style>
         :root {
             --bg-dark:    <?php echo $color_bg; ?>;
@@ -2122,6 +2126,7 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
     };
 
     function showSection(id, doUrl = true) {
+        if (document.getElementById('full-player').classList.contains('active')) closeFullPlayer();
         ['accueil', 'playlists', 'artist-page'].forEach(sectionId => {
             const el = document.getElementById(sectionId);
             if (sectionId === id) {
