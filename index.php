@@ -2011,12 +2011,14 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         const albums = [...albumsMap.values()].sort((a, b) => fixEntities(a.name).localeCompare(fixEntities(b.name)));
         container.innerHTML = albums.map(a => {
             const safeName   = escapeHTML(fixEntities(a.name));
-            const safeArtist = escapeHTML([...a.artists.values()].join(', '));
+            const artistHTML = [...a.artists.values()]
+                .map(n => `<span class="artist-link" onclick="event.stopPropagation();showArtistPage('${jsAttrEscape(n)}')">${escapeHTML(n)}</span>`)
+                .join(', ');
             const cover = 'api.php?action=album_cover&q=' + a.id + '&t=' + Date.now();
             return `<div class="carousel-card" onclick="showAlbumPage(${a.id})">
                 <div class="cc-cover-wrap"><img src="${cover}" loading="lazy" alt="" onerror="this.onerror=null;this.src='covers/default.png'"></div>
                 <div class="cc-title">${safeName}</div>
-                <div class="cc-artist">${safeArtist}</div>
+                <div class="cc-artist">${artistHTML}</div>
             </div>`;
         }).join('');
     }
