@@ -34,10 +34,19 @@ try {
         artist      VARCHAR(200) DEFAULT 'Artiste inconnu',
         cover       VARCHAR(255) DEFAULT 'default.png',
         genre       VARCHAR(50)  DEFAULT 'Autre',
+        album_id    INT          DEFAULT NULL,
         uploader_id INT,
         upload_date DATETIME     DEFAULT CURRENT_TIMESTAMP,
         play_count  INT          DEFAULT 0,
         duration    INT          DEFAULT 0
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    $db->exec("CREATE TABLE IF NOT EXISTS albums (
+        id         INT AUTO_INCREMENT PRIMARY KEY,
+        name       VARCHAR(255) NOT NULL,
+        cover      VARCHAR(255) DEFAULT NULL,
+        created_at DATETIME     DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_album_name (name)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
     $db->exec("CREATE TABLE IF NOT EXISTS playlists (
@@ -64,6 +73,10 @@ try {
     if (!in_array('genre',      $colNames)) $db->exec("ALTER TABLE tracks ADD COLUMN genre      VARCHAR(50) DEFAULT 'Autre'");
     if (!in_array('play_count', $colNames)) $db->exec("ALTER TABLE tracks ADD COLUMN play_count INT         DEFAULT 0");
     if (!in_array('duration',   $colNames)) $db->exec("ALTER TABLE tracks ADD COLUMN duration   INT         DEFAULT 0");
+    if (!in_array('album_id',   $colNames)) $db->exec("ALTER TABLE tracks ADD COLUMN album_id   INT         DEFAULT NULL");
+
+    // idx_album ne peut être créé qu'une fois la colonne album_id garantie présente ci-dessus
+    $db->exec("CREATE INDEX IF NOT EXISTS idx_album ON tracks(album_id)");
 
     // --- MIGRATIONS AUTOMATIQUES (users) ---
     $colsUsers = $db->query("SHOW COLUMNS FROM users")->fetchAll(PDO::FETCH_ASSOC);
@@ -164,6 +177,23 @@ function authenticate_api_user($db) {
     return false;
 }
 
+// --- ALBUMS : Récupère l'ID d'un album par nom, le crée si absent ---
+function getOrCreateAlbum($db, $name) {
+    $stmt = $db->prepare("SELECT id FROM albums WHERE name = ?");
+    $stmt->execute([$name]);
+    $id = $stmt->fetchColumn();
+    if ($id) return (int)$id;
+
+    try {
+        $db->prepare("INSERT INTO albums (name) VALUES (?)")->execute([$name]);
+        return (int)$db->lastInsertId();
+    } catch (Exception $e) {
+        // Concurrence : un autre upload vient de créer cet album entre le SELECT et l'INSERT
+        $stmt->execute([$name]);
+        return (int)$stmt->fetchColumn();
+    }
+}
+
 // --- CALCULE LA DURÉE MULTI-FORMATS ---
 function calculateAudioDuration($path) {
     if (!file_exists($path)) return 0;
@@ -261,19 +291,19 @@ function calculateAudioDuration($path) {
 
 // --- HELPER METADATA (ROBUSTE) ---
 function extractMp3Data($path) {
-    if (!file_exists($path)) return ['artist'=>null, 'title'=>null, 'cover'=>null];
+    if (!file_exists($path)) return ['artist'=>null, 'title'=>null, 'album'=>null, 'cover'=>null];
     $f = fopen($path, 'rb');
-    if (!$f) return ['artist'=>null, 'title'=>null, 'cover'=>null];
-    
+    if (!$f) return ['artist'=>null, 'title'=>null, 'album'=>null, 'cover'=>null];
+
     $header = fread($f, 10);
-    if (substr($header, 0, 3) !== 'ID3') { fclose($f); return ['artist'=>null, 'title'=>null, 'cover'=>null]; }
-    
+    if (substr($header, 0, 3) !== 'ID3') { fclose($f); return ['artist'=>null, 'title'=>null, 'album'=>null, 'cover'=>null]; }
+
     $b = unpack('C*', substr($header, 6, 4));
     $tagSize = ($b[1] << 21) | ($b[2] << 14) | ($b[3] << 7) | $b[4];
     $tagData = fread($f, $tagSize);
     fclose($f);
-    
-    $result = ['cover' => null, 'artist' => null, 'title' => null];
+
+    $result = ['cover' => null, 'artist' => null, 'title' => null, 'album' => null];
     $pos = 0;
     while ($pos < strlen($tagData) - 10) {
         $frameHeader = substr($tagData, $pos, 10);
@@ -290,6 +320,10 @@ function extractMp3Data($path) {
         if ($frameName === 'TIT2') {
             $body = substr($tagData, $pos + 10, $frameSize);
             if(strlen($body) > 1) $result['title'] = trim(preg_replace('/[\x00-\x1F\x7F]/u', '', substr($body, 1)));
+        }
+        if ($frameName === 'TALB') {
+            $body = substr($tagData, $pos + 10, $frameSize);
+            if(strlen($body) > 1) $result['album'] = trim(preg_replace('/[\x00-\x1F\x7F]/u', '', substr($body, 1)));
         }
         if ($frameName === 'APIC') {
             $body = substr($tagData, $pos + 10, $frameSize);
@@ -390,9 +424,30 @@ switch($action) {
         break;
 
     case 'list':
-        $stmt = $db->query("SELECT tracks.id, tracks.title, tracks.artist, tracks.cover, tracks.genre, tracks.play_count, tracks.duration, tracks.uploader_id FROM tracks ORDER BY play_count DESC, id DESC");
+        $stmt = $db->query("SELECT tracks.id, tracks.title, tracks.artist, tracks.cover, tracks.genre, tracks.album_id, albums.name AS album, tracks.play_count, tracks.duration, tracks.uploader_id FROM tracks LEFT JOIN albums ON tracks.album_id = albums.id ORDER BY play_count DESC, tracks.id DESC");
         $tracks = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        foreach($tracks as &$t) { 
+        foreach($tracks as &$t) {
+            $t['cover_url'] = $baseUrl . "api.php?action=cover&q=" . $t['id'] . "&t=" . time();
+            $t['stream_url'] = $baseUrl . "api.php?action=stream&q=" . $t['id'];
+        }
+        echo json_encode($tracks);
+        break;
+
+    case 'albums':
+        $stmt = $db->query("SELECT a.id, a.name, (SELECT COUNT(*) FROM tracks t WHERE t.album_id = a.id) AS track_count FROM albums a ORDER BY a.name ASC");
+        $albums = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach($albums as &$a) {
+            $a['cover_url'] = $baseUrl . "api.php?action=album_cover&q=" . $a['id'] . "&t=" . time();
+        }
+        echo json_encode($albums);
+        break;
+
+    case 'album_tracks':
+        $aid = filter_var($_GET['q'] ?? 0, FILTER_VALIDATE_INT);
+        $stmt = $db->prepare("SELECT tracks.id, tracks.title, tracks.artist, tracks.cover, tracks.genre, tracks.album_id, tracks.play_count, tracks.duration, tracks.uploader_id FROM tracks WHERE album_id = ? ORDER BY tracks.id ASC");
+        $stmt->execute([$aid]);
+        $tracks = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach($tracks as &$t) {
             $t['cover_url'] = $baseUrl . "api.php?action=cover&q=" . $t['id'] . "&t=" . time();
             $t['stream_url'] = $baseUrl . "api.php?action=stream&q=" . $t['id'];
         }
@@ -477,6 +532,33 @@ switch($action) {
         
         header("Content-Type: " . $mime); readfile($path); exit;
 
+    case 'album_cover':
+        $aid = filter_var($_GET['q'] ?? 0, FILTER_VALIDATE_INT);
+        $stmt = $db->prepare("SELECT cover FROM albums WHERE id = ?"); $stmt->execute([$aid]); $alb = $stmt->fetch();
+
+        $coverName = null;
+        if ($alb && !empty($alb['cover'])) {
+            // Cover importée manuellement pour l'album
+            $coverName = basename($alb['cover']);
+        } else {
+            // Pas de cover importée : on prend celle du morceau le plus récent de l'album
+            $t = $db->prepare("SELECT cover FROM tracks WHERE album_id = ? AND cover IS NOT NULL AND cover != '' ORDER BY id DESC LIMIT 1");
+            $t->execute([$aid]);
+            $recent = $t->fetch();
+            if ($recent && !empty($recent['cover'])) $coverName = basename($recent['cover']);
+        }
+
+        $path = $coverName ? $coverDir . '/' . $coverName : null;
+        if (!$path || !file_exists($path)) $path = $coverDir . '/default.png';
+
+        $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        $mime = 'image/jpeg';
+        if ($ext === 'webp') $mime = 'image/webp';
+        elseif ($ext === 'png') $mime = 'image/png';
+        elseif ($ext === 'gif') $mime = 'image/gif';
+
+        header("Content-Type: " . $mime); readfile($path); exit;
+
     case 'upload':
         $auth = authenticate_api_user($db);
         if (!$auth) { echo json_encode(["status" => "error", "message" => "Accès refusé. Identifiants invalides."]); exit; }
@@ -503,11 +585,19 @@ switch($action) {
             $ti = !empty($_POST['title']) ? $_POST['title'] : (!empty($meta['title']) ? $meta['title'] : pathinfo($file['name'], PATHINFO_FILENAME));
             $ar = !empty($_POST['artist']) ? $_POST['artist'] : (!empty($meta['artist']) ? $meta['artist'] : "Inconnu");
             $ge = !empty($_POST['genre']) ? $_POST['genre'] : 'Autre';
-            
+            // Par défaut un morceau n'a pas d'album ; sinon on tente de le lire depuis les tags du mp3
+            $al = !empty($_POST['album']) ? $_POST['album'] : (!empty($meta['album']) ? $meta['album'] : null);
+
             $ti = sanitize_text($ti);
             $ar = sanitize_text($ar);
             $ge = sanitize_text($ge, 50);
-            
+
+            $albumId = null;
+            if (!empty($al)) {
+                $al = sanitize_text($al, 255);
+                if ($al !== '') $albumId = getOrCreateAlbum($db, $al);
+            }
+
             $cn = "default.png";
             
             if(!empty($_FILES['cover']['name'])) {
@@ -522,17 +612,37 @@ switch($action) {
                     optimizeImage($_FILES['cover']['tmp_name'], $coverDir.'/'.$cn);
                 }
             } elseif(!empty($meta['cover']['data'])) {
-                $cn = bin2hex(random_bytes(8)) . "_meta.webp"; 
+                $cn = bin2hex(random_bytes(8)) . "_meta.webp";
                 $tmpImgPath = sys_get_temp_dir() . '/' . uniqid() . '.tmp';
                 file_put_contents($tmpImgPath, $meta['cover']['data']);
                 optimizeImage($tmpImgPath, $coverDir.'/'.$cn, $meta['cover']['mime']);
                 @unlink($tmpImgPath);
             }
-            
+
+            // --- ALBUM : import optionnel d'une cover dédiée à l'album ---
+            // (sinon, tant qu'aucune cover n'est importée, l'album affiche la cover du morceau le plus récent)
+            if ($albumId && !empty($_FILES['album_cover']['name'])) {
+                if ($_FILES['album_cover']['size'] > MAX_IMAGE_SIZE) {
+                    echo json_encode(["status" => "error", "message" => "Image de couverture d'album trop volumineuse (5 Mo max)"]); exit;
+                }
+                $albImgExt = strtolower(pathinfo($_FILES['album_cover']['name'], PATHINFO_EXTENSION));
+                $allowedImgExt = ['png', 'jpg', 'jpeg', 'webp', 'gif'];
+                if (in_array($albImgExt, $allowedImgExt)) {
+                    $acn = bin2hex(random_bytes(8)) . "_album.webp";
+                    if (optimizeImage($_FILES['album_cover']['tmp_name'], $coverDir.'/'.$acn)) {
+                        $oldAlbumCover = $db->prepare("SELECT cover FROM albums WHERE id = ?");
+                        $oldAlbumCover->execute([$albumId]);
+                        $oldCoverName = $oldAlbumCover->fetchColumn();
+                        if (!empty($oldCoverName) && file_exists($coverDir.'/'.$oldCoverName)) unlink($coverDir.'/'.$oldCoverName);
+                        $db->prepare("UPDATE albums SET cover = ? WHERE id = ?")->execute([$acn, $albumId]);
+                    }
+                }
+            }
+
             $duration = calculateAudioDuration($file['tmp_name']);
-            
+
             if(move_uploaded_file($file['tmp_name'], $musicDir.'/'.$fn)) {
-                $db->prepare("INSERT INTO tracks (filename, title, artist, cover, genre, uploader_id, duration) VALUES (?,?,?,?,?,?,?)")->execute([$fn, $ti, $ar, $cn, $ge, $auth['id'], $duration]);
+                $db->prepare("INSERT INTO tracks (filename, title, artist, cover, genre, album_id, uploader_id, duration) VALUES (?,?,?,?,?,?,?,?)")->execute([$fn, $ti, $ar, $cn, $ge, $albumId, $auth['id'], $duration]);
                 echo json_encode(["status" => "success"]);
             } else echo json_encode(["status" => "error", "message" => "Erreur de déplacement du fichier"]);
         } else echo json_encode(["status" => "error", "message" => "Fichier audio manquant"]);
@@ -556,6 +666,17 @@ switch($action) {
             if(isset($_POST['new_genre'])) {
                 $sets[] = "genre = ?";
                 $params[] = sanitize_text($_POST['new_genre'], 50);
+            }
+
+            // --- ALBUM : réassignation. Chaîne vide = on retire le morceau de son album ---
+            if(isset($_POST['new_album'])) {
+                $newAlbumName = sanitize_text($_POST['new_album'], 255);
+                if ($newAlbumName === '') {
+                    $sets[] = "album_id = NULL";
+                } else {
+                    $sets[] = "album_id = ?";
+                    $params[] = getOrCreateAlbum($db, $newAlbumName);
+                }
             }
 
             if(!empty($_FILES['new_cover']['name'])) {
@@ -599,6 +720,48 @@ switch($action) {
             $db->prepare("DELETE FROM tracks WHERE id=?")->execute([$tid]);
             echo json_encode(["status" => "success"]);
         } else echo json_encode(["status" => "error", "message" => "Interdit : Vous n'avez pas les droits sur cette musique"]);
+        break;
+
+    case 'edit_album':
+        $auth = authenticate_api_user($db);
+        if (!$auth) { echo json_encode(["status" => "error", "message" => "Accès refusé. Identifiants invalides."]); exit; }
+
+        $aid = filter_var($_POST['album_id'] ?? 0, FILTER_VALIDATE_INT);
+        if ($aid === false || $aid <= 0) { echo json_encode(["status" => "error", "message" => "ID d'album invalide"]); exit; }
+
+        $a = $db->prepare("SELECT cover FROM albums WHERE id=?"); $a->execute([$aid]); $curr = $a->fetch();
+        if (!$curr) { echo json_encode(["status" => "error", "message" => "Album introuvable"]); exit; }
+
+        $sets = []; $params = [];
+
+        if (isset($_POST['name']) && trim($_POST['name']) !== '') {
+            $sets[] = "name = ?"; $params[] = sanitize_text($_POST['name'], 255);
+        }
+
+        if (!empty($_FILES['cover']['name'])) {
+            if ($_FILES['cover']['size'] > MAX_IMAGE_SIZE) {
+                echo json_encode(["status" => "error", "message" => "Image de couverture trop volumineuse (5 Mo max)"]); exit;
+            }
+            $imgExt = strtolower(pathinfo($_FILES['cover']['name'], PATHINFO_EXTENSION));
+            $allowedImgExt = ['png', 'jpg', 'jpeg', 'webp', 'gif'];
+            if (in_array($imgExt, $allowedImgExt)) {
+                $acn = bin2hex(random_bytes(8)) . "_album.webp";
+                if (optimizeImage($_FILES['cover']['tmp_name'], $coverDir.'/'.$acn)) {
+                    $sets[] = "cover = ?"; $params[] = $acn;
+                    if (!empty($curr['cover']) && file_exists($coverDir.'/'.$curr['cover'])) unlink($coverDir.'/'.$curr['cover']);
+                }
+            }
+        }
+
+        if (empty($sets)) { echo json_encode(["status" => "error", "message" => "Aucune modification fournie"]); exit; }
+
+        $params[] = $aid;
+        try {
+            $db->prepare("UPDATE albums SET ".implode(', ', $sets)." WHERE id = ?")->execute($params);
+            echo json_encode(["status" => "success"]);
+        } catch (Exception $e) {
+            echo json_encode(["status" => "error", "message" => "Ce nom d'album existe déjà"]);
+        }
         break;
 
     case 'playlists':
