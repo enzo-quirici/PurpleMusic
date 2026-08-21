@@ -50,6 +50,15 @@ CREATE TABLE IF NOT EXISTS `genres` (
     UNIQUE KEY `uq_genre_name` (`name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS `albums` (
+    `id`            INT UNSIGNED    NOT NULL AUTO_INCREMENT,
+    `name`          VARCHAR(255)    NOT NULL,
+    `cover`         VARCHAR(255)    DEFAULT NULL,
+    `created_at`    DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uq_album_name` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS `tracks` (
     `id`            INT UNSIGNED    NOT NULL AUTO_INCREMENT,
     `filename`      VARCHAR(255)    NOT NULL,
@@ -57,6 +66,7 @@ CREATE TABLE IF NOT EXISTS `tracks` (
     `artist`        VARCHAR(255)    NOT NULL DEFAULT 'Artiste inconnu',
     `cover`         VARCHAR(255)    NOT NULL DEFAULT 'default.png',
     `genre`         VARCHAR(100)    NOT NULL DEFAULT 'Autre',
+    `album_id`      INT UNSIGNED    DEFAULT NULL,
     `uploader_id`   INT UNSIGNED    NOT NULL,
     `upload_date`   DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `play_count`    INT UNSIGNED    NOT NULL DEFAULT 0,
@@ -64,9 +74,13 @@ CREATE TABLE IF NOT EXISTS `tracks` (
     PRIMARY KEY (`id`),
     KEY `idx_play_count` (`play_count`),
     KEY `idx_uploader`   (`uploader_id`),
+    KEY `idx_album`      (`album_id`),
     CONSTRAINT `fk_tracks_user`
         FOREIGN KEY (`uploader_id`) REFERENCES `users` (`id`)
-        ON DELETE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT `fk_tracks_album`
+        FOREIGN KEY (`album_id`) REFERENCES `albums` (`id`)
+        ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `playlists` (
