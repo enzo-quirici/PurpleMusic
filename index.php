@@ -284,6 +284,7 @@ $I18N = [
     'nav_library'             => ['fr' => 'Bibliothèque',                   'en' => 'Library'],
     'nav_playlists'           => ['fr' => 'Playlists',                      'en' => 'Playlists'],
     'nav_albums'              => ['fr' => 'Albums',                         'en' => 'Albums'],
+    'nav_artists'             => ['fr' => 'Artistes',                       'en' => 'Artists'],
     'nav_admin'               => ['fr' => 'Panel Admin',                    'en' => 'Admin Panel'],
     'header_settings'         => ['fr' => 'Paramètres',                     'en' => 'Settings'],
     'header_logout'           => ['fr' => 'Sortir',                         'en' => 'Log out'],
@@ -327,6 +328,8 @@ $I18N = [
     'playlists_title'         => ['fr' => 'Tes Mixs',                       'en' => 'Your Mixes'],
     'albums_title'            => ['fr' => 'Albums',                         'en' => 'Albums'],
     'no_albums_found'         => ['fr' => 'Aucun album pour le moment',     'en' => 'No albums yet'],
+    'artists_title'           => ['fr' => 'Artistes',                       'en' => 'Artists'],
+    'no_artists_found'        => ['fr' => 'Aucun artiste pour le moment',   'en' => 'No artists yet'],
     'btn_back_library'        => ['fr' => 'Retour à la bibliothèque',       'en' => 'Back to library'],
     'created_by'              => ['fr' => 'Créé par',                       'en' => 'Created by'],
     'btn_play'                => ['fr' => '▶ Écouter',                      'en' => '▶ Play'],
@@ -740,6 +743,8 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         .carousel-card .cc-cover-wrap { position:relative; }
         .carousel-card img { width:160px; height:160px; border-radius:12px; object-fit:cover; box-shadow:0 8px 20px rgba(0,0,0,.3); transition:transform .2s; display:block; }
         .carousel-card:hover img { transform:scale(1.04); }
+        .carousel-card.artist-card img { border-radius:50%; }
+        .carousel-card.artist-card .cc-title { text-align:center; }
         .carousel-card .cc-title { font-weight:700; font-size:.9em; margin-top:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .carousel-card .cc-artist { font-size:.78em; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
@@ -1005,6 +1010,10 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
             <svg class="nav-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"/></svg>
             <span class="nav-label"><?php echo htmlspecialchars(t('nav_playlists')); ?></span>
         </span>
+        <span id="nav-artists" onclick="showSection('artists')" title="<?php echo htmlspecialchars(t('nav_artists')); ?>">
+            <svg class="nav-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+            <span class="nav-label"><?php echo htmlspecialchars(t('nav_artists')); ?></span>
+        </span>
         <span id="nav-albums" onclick="showSection('albums')" title="<?php echo htmlspecialchars(t('nav_albums')); ?>">
             <svg class="nav-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zm0 15.5A6.5 6.5 0 1 1 12 5.5a6.5 6.5 0 0 1 0 13zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg>
             <span class="nav-label"><?php echo htmlspecialchars(t('nav_albums')); ?></span>
@@ -1167,6 +1176,11 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
     <div class="cards-wrap" id="albums-grid"></div>
 </main>
 
+<main id="artists" style="display:none;">
+    <h2 class="section-title" style="margin-bottom:25px;"><?php echo htmlspecialchars(t('artists_title')); ?></h2>
+    <div class="cards-wrap" id="artists-grid"></div>
+</main>
+
 <main id="artist-page" style="display:none;">
     <div class="artist-page-back" onclick="showSection('accueil')">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
@@ -1179,6 +1193,16 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
             <div class="artist-hero-info">
                 <h2 class="section-title" id="artist-page-title"></h2>
                 <p id="artist-page-count"></p>
+                <div style="display:flex;gap:12px;margin-top:15px;">
+                    <button class="btn btn-primary btn-labeled" onclick="playArtist(currentArtistName)">
+                        <svg class="btn-icon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                        <span class="btn-label"><?php echo htmlspecialchars(t('btn_play_album')); ?></span>
+                    </button>
+                    <button class="btn btn-outline btn-labeled" onclick="playArtist(currentArtistName, true)">
+                        <svg class="btn-icon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg>
+                        <span class="btn-label"><?php echo htmlspecialchars(t('btn_shuffle_play')); ?></span>
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -2023,6 +2047,40 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         }).join('');
     }
 
+    // ── Grille "Artistes" : un artiste par nom distinct (featurings séparés
+    // via splitArtistNames), dérivée de ALL_MUSIC_DATA comme la grille albums.
+    // La pochette affichée est celle du morceau le plus récent de l'artiste,
+    // même convention que showArtistPage().
+    function renderArtistsGrid() {
+        const container = document.getElementById('artists-grid');
+        if (!container) return;
+
+        const artistsMap = new Map();
+        ALL_MUSIC_DATA.forEach(tr => {
+            splitArtistNames(fixEntities(tr.artist)).forEach(n => {
+                const key = n.toLowerCase();
+                if (!artistsMap.has(key)) artistsMap.set(key, { name: n, count: 0, cover: tr.cover_url, latestId: tr.id });
+                const entry = artistsMap.get(key);
+                entry.count++;
+                if (tr.id > entry.latestId) { entry.latestId = tr.id; entry.cover = tr.cover_url; }
+            });
+        });
+
+        if (!artistsMap.size) {
+            container.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-muted);">${t('no_artists_found')}</div>`;
+            return;
+        }
+
+        const artists = [...artistsMap.values()].sort((a, b) => a.name.localeCompare(b.name));
+        container.innerHTML = artists.map(a => {
+            const safeName = escapeHTML(a.name);
+            return `<div class="carousel-card artist-card" onclick="showArtistPage('${jsAttrEscape(a.name)}')">
+                <div class="cc-cover-wrap"><img src="${escapeHTML(a.cover)}" loading="lazy" alt="" onerror="this.onerror=null;this.src='covers/default.png'"></div>
+                <div class="cc-title">${safeName}</div>
+            </div>`;
+        }).join('');
+    }
+
     const _observer = new IntersectionObserver(entries => {
         if (entries[0].isIntersecting && renderedCount < CURRENT_VIEW_DATA.length) renderTracksChunk();
     }, { rootMargin: '200px' });
@@ -2038,6 +2096,7 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         renderGenrePillsCarousel();
         renderHomeCarousels();
         renderAlbumsGrid();
+        renderArtistsGrid();
         const p = new URLSearchParams(window.location.search);
         if (p.get('page') === 'artist-page' && p.get('artist')) showArtistPage(p.get('artist'), false);
         else if (p.get('page') === 'album-page' && p.get('album')) showAlbumPage(parseInt(p.get('album')), false);
@@ -2166,6 +2225,33 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         currentIndex = 0;
 
         isShuffle = shuffleAlbum;
+        document.getElementById('shuffleBtn').classList.toggle('active', isShuffle);
+        document.getElementById('fp-shuffleBtn').classList.toggle('active', isShuffle);
+
+        loadTrack(true);
+    }
+
+    // ── Lecture des morceaux d'un artiste (en ordre ou mélangé) : même
+    // logique que playAlbum, la file continue avec le reste de la
+    // bibliothèque (mélangé) une fois les morceaux de l'artiste terminés.
+    function playArtist(artistName, shuffleArtist = false) {
+        if (!artistName) return;
+        const norm = artistName.trim().toLowerCase();
+        let artistTracks = ALL_MUSIC_DATA.filter(tr => splitArtistNames(fixEntities(tr.artist)).some(n => n.toLowerCase() === norm));
+        if (!artistTracks.length) return;
+        if (shuffleArtist) artistTracks = shuffleArray([...artistTracks]);
+
+        const usedIds = new Set(artistTracks.map(tr => tr.id));
+        let rest = ALL_MUSIC_DATA.filter(tr => !usedIds.has(tr.id));
+        if (hiddenGenres.length) rest = rest.filter(tr => !hiddenGenres.includes(tr.genre || 'Autre'));
+        const continuation = shuffleArray([...rest]);
+
+        currentPlaylistId = null;
+        originalQueue = [...artistTracks, ...continuation];
+        queue = [...originalQueue];
+        currentIndex = 0;
+
+        isShuffle = shuffleArtist;
         document.getElementById('shuffleBtn').classList.toggle('active', isShuffle);
         document.getElementById('fp-shuffleBtn').classList.toggle('active', isShuffle);
 
@@ -2306,7 +2392,7 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
 
     function showSection(id, doUrl = true) {
         if (document.getElementById('full-player').classList.contains('active')) closeFullPlayer();
-        ['accueil', 'playlists', 'albums', 'artist-page', 'album-page'].forEach(sectionId => {
+        ['accueil', 'playlists', 'albums', 'artists', 'artist-page', 'album-page'].forEach(sectionId => {
             const el = document.getElementById(sectionId);
             if (sectionId === id) {
                 el.style.display = 'block';
