@@ -88,6 +88,7 @@ CREATE TABLE IF NOT EXISTS `playlists` (
     `name`          VARCHAR(255)    NOT NULL,
     `creator_id`    INT UNSIGNED    NOT NULL,
     `song_ids`      TEXT,
+    `is_public`     TINYINT(1)      NOT NULL DEFAULT 1,
     `created_at`    DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
     KEY `idx_creator` (`creator_id`),

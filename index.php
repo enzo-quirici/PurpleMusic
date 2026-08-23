@@ -331,12 +331,14 @@ $I18N = [
     'artists_title'           => ['fr' => 'Artistes',                       'en' => 'Artists'],
     'no_artists_found'        => ['fr' => 'Aucun artiste pour le moment',   'en' => 'No artists yet'],
     'btn_back_library'        => ['fr' => 'Retour à la bibliothèque',       'en' => 'Back to library'],
+    'btn_back_playlists'      => ['fr' => 'Retour aux playlists',           'en' => 'Back to playlists'],
     'created_by'              => ['fr' => 'Créé par',                       'en' => 'Created by'],
     'btn_play'                => ['fr' => '▶ Écouter',                      'en' => '▶ Play'],
     'btn_shuffle_play'        => ['fr' => 'Aléatoire',                      'en' => 'Shuffle'],
     'btn_play_album'          => ['fr' => 'Écouter',                        'en' => 'Play'],
     'btn_edit'                => ['fr' => 'Éditer',                         'en' => 'Edit'],
     'btn_delete_short'        => ['fr' => 'Suppr',                          'en' => 'Delete'],
+    'btn_add_song'            => ['fr' => 'Ajouter',                        'en' => 'Add songs'],
     'mobnav_library'          => ['fr' => 'Biblio',                         'en' => 'Library'],
     'mobnav_mixes'            => ['fr' => 'Mixs',                           'en' => 'Mixes'],
     'settings_title'          => ['fr' => 'Filtres & Paramètres',           'en' => 'Filters & Settings'],
@@ -378,6 +380,8 @@ $I18N = [
     'normal_playback'         => ['fr' => 'Lecture normale',                'en' => 'Normal playback'],
     'selected_suffix'         => ['fr' => ' sélectionné(s)',                'en' => ' selected'],
     'word_and'                => ['fr' => 'et',                             'en' => 'and'],
+    'playlist_public_label'   => ['fr' => 'Playlist publique (visible par tous)', 'en' => 'Public playlist (visible to everyone)'],
+    'playlist_private_badge'  => ['fr' => 'Privée',                         'en' => 'Private'],
 ];
 function t(string $key): string {
     global $I18N, $LANG;
@@ -614,10 +618,18 @@ if ($user_id) {
 // ===========================================================
 //  DONNÉES POUR LE RENDU — lues depuis api.php
 // ===========================================================
-$all_tracks    = $user_id ? api_request('list')      : [];
-$all_playlists = $user_id ? api_request('playlists') : [];
-if (!is_array($all_tracks) || (isset($all_tracks['status'])))       $all_tracks = [];
+$all_tracks    = $user_id ? api_request('list') : [];
+if (!is_array($all_tracks) || (isset($all_tracks['status']))) $all_tracks = [];
+
+$all_playlists = $user_id
+    ? api_request('playlists', ['username' => $username, 'password' => $api_pw])
+    : [];
 if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlists = [];
+
+// Index des pistes par id : sert à retrouver les 4 premières pochettes
+// de chaque playlist (aperçu en mosaïque) sans appel API supplémentaire.
+$tracksById = [];
+foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
 
 ?>
 <!DOCTYPE html>
@@ -724,6 +736,14 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         .track-item:hover { background:rgba(255,255,255,.07); }
         .mini-cover { width:50px; height:50px; border-radius:12px; object-fit:cover; box-shadow:0 4px 8px rgba(0,0,0,.3); }
         .track-index { color:var(--primary); font-weight:700; opacity:.7; }
+        .track-item.pl-editable { grid-template-columns:24px 40px 50px 1fr auto; }
+        .track-item.pl-editable.dragging { opacity:.4; background:rgba(var(--primary-rgb),.08); }
+        .pl-drag-handle { cursor:grab; color:var(--text-muted); display:flex; align-items:center; justify-content:center; }
+        .pl-drag-handle:active { cursor:grabbing; }
+        .pl-icon-btn { background:none; border:none; color:var(--text-muted); cursor:pointer; padding:5px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:.85em; line-height:1; transition:.15s; }
+        .pl-icon-btn:hover { color:var(--text); background:rgba(255,255,255,.08); }
+        .pl-icon-btn:disabled { opacity:.2; cursor:default; }
+        .pl-icon-btn:disabled:hover { background:none; color:var(--text-muted); }
         #load-more-trigger { height:40px; text-align:center; color:var(--text-muted); padding-top:15px; font-size:.9em; }
 
         /* Carrousels d'accueil (Recommandé / Populaire / Pépites cachées) */
@@ -763,6 +783,8 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         .artist-pfp.album-cover-pfp { border-radius:16px; }
         .artist-hero-info .section-title { border-left:none; padding-left:0; margin:0 0 6px; }
         .artist-hero-info p { margin:0; color:rgba(255,255,255,.75); }
+        .playlist-title-input { display:block; font-size:1.5em; font-weight:800; font-family:inherit; color:#fff; background:rgba(255,255,255,.1); border:none; border-bottom:2px solid var(--accent); border-radius:6px 6px 0 0; padding:2px 8px; margin:0 0 6px; width:100%; max-width:420px; }
+        .playlist-title-input:focus { outline:none; background:rgba(255,255,255,.16); }
         .artist-bio { color:var(--text-muted); font-size:.92em; line-height:1.6; margin:0 0 25px; max-width:900px; }
         .artist-bio a { color:var(--accent); text-decoration:none; }
         .artist-bio a:hover { text-decoration:underline; }
@@ -777,9 +799,16 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         .genre-pill:hover { color:var(--text); border-color:var(--accent); }
         .genre-pill.active { background:var(--primary); border-color:var(--primary); color:#fff; }
 
-        .playlist-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:25px; }
-        .playlist-card { background:var(--bg-panel); border-radius:24px; padding:25px; border:1px solid rgba(var(--border-color-rgb),.5); transition:transform .3s,box-shadow .3s; }
-        .playlist-card:hover { transform:translateY(-5px); box-shadow:0 15px 30px rgba(0,0,0,.4); border-color:var(--primary); }
+        .playlist-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); gap:16px; }
+        .playlist-card { background:var(--bg-panel); border-radius:16px; padding:14px; border:1px solid rgba(var(--border-color-rgb),.5); transition:transform .3s,box-shadow .3s; cursor:pointer; }
+        .playlist-card:hover { transform:translateY(-4px); box-shadow:0 12px 24px rgba(0,0,0,.35); border-color:var(--primary); }
+        .playlist-card-title { margin:0 0 4px; font-size:.95em; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .playlist-card-creator { font-size:.78em; color:var(--text-muted); margin:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .playlist-cover-collage { display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; gap:2px; width:100%; aspect-ratio:1; border-radius:12px; overflow:hidden; margin-bottom:10px; background:var(--elevated-bg); box-shadow:0 6px 16px rgba(0,0,0,.3); }
+        .playlist-cover-collage.single { grid-template-columns:1fr; grid-template-rows:1fr; }
+        .playlist-cover-collage img { width:100%; height:100%; object-fit:cover; display:block; }
+        .playlist-page-hero-collage { width:120px; height:120px; aspect-ratio:auto; flex-shrink:0; margin-bottom:0; box-shadow:0 8px 24px rgba(0,0,0,.4); }
+        .playlist-private-badge { display:inline-flex; align-items:center; gap:4px; font-size:.75em; font-weight:700; color:var(--text-muted); background:rgba(var(--border-color-rgb),.4); padding:2px 9px; border-radius:99px; margin-left:8px; vertical-align:middle; }
 
         .queue-item { display:flex; align-items:center; gap:12px; padding:10px; border-radius:12px; margin-bottom:8px; cursor:pointer; border:1px solid transparent; transition:.2s; }
         .queue-item.active { background:rgba(var(--primary-rgb),.15); border-color:var(--primary); }
@@ -1155,20 +1184,64 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
 <main id="playlists" style="display:none;">
     <h2 class="section-title" style="margin-bottom:25px;"><?php echo htmlspecialchars(t('playlists_title')); ?></h2>
     <div class="playlist-grid">
-        <?php foreach ($all_playlists as $p): ?>
-            <div class="playlist-card">
-                <h3 style="margin-top:0;font-size:1.3em;"><?php echo htmlspecialchars(fixEntities($p['name'])); ?></h3>
-                <p style="font-size:.85em;color:var(--text-muted);margin-bottom:20px;"><?php echo htmlspecialchars(t('created_by')); ?> <strong><?php echo htmlspecialchars(fixEntities($p['creator'])); ?></strong></p>
-                <button class="btn btn-primary" style="width:100%;justify-content:center;margin-bottom:15px;" onclick="playPlaylist('<?php echo htmlspecialchars($p['song_ids']); ?>','<?php echo $p['id']; ?>')"><?php echo htmlspecialchars(t('btn_play')); ?></button>
-                <?php if ($p['creator_id'] == $user_id || $is_admin): ?>
-                    <div style="display:flex;gap:10px;">
-                        <button class="btn btn-outline" style="flex:1;justify-content:center;font-size:.8em;" onclick='openEditModal(<?php echo json_encode($p, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>)'><?php echo htmlspecialchars(t('btn_edit')); ?></button>
-                        <button class="btn btn-danger" style="flex:1;justify-content:center;border-radius:99px;" onclick="deletePlaylist(<?php echo (int)$p['id']; ?>)"><?php echo htmlspecialchars(t('btn_delete_short')); ?></button>
-                    </div>
-                <?php endif; ?>
+        <?php foreach ($all_playlists as $p):
+            $songIds = array_filter(explode(',', (string)$p['song_ids']));
+            $covers = [];
+            foreach ($songIds as $sid) {
+                if (isset($tracksById[$sid])) $covers[] = $tracksById[$sid]['cover_url'];
+                if (count($covers) >= 4) break;
+            }
+            if (!$covers) $covers[] = 'covers/default.png';
+            $collageSlots = count($covers) === 1 ? 1 : 4;
+            $isPublic = !isset($p['is_public']) || (int)$p['is_public'] === 1;
+        ?>
+            <div class="playlist-card" onclick="showPlaylistPage(<?php echo (int)$p['id']; ?>)">
+                <div class="playlist-cover-collage<?php echo $collageSlots === 1 ? ' single' : ''; ?>">
+                    <?php for ($i = 0; $i < $collageSlots; $i++): ?>
+                        <img src="<?php echo htmlspecialchars($covers[$i % count($covers)]); ?>" loading="lazy" alt="" onerror="this.onerror=null;this.src='covers/default.png'">
+                    <?php endfor; ?>
+                </div>
+                <h3 class="playlist-card-title"><?php echo htmlspecialchars(fixEntities($p['name'])); ?><?php if (!$isPublic): ?><span class="playlist-private-badge">🔒 <?php echo htmlspecialchars(t('playlist_private_badge')); ?></span><?php endif; ?></h3>
+                <p class="playlist-card-creator"><?php echo htmlspecialchars(t('created_by')); ?> <strong><?php echo htmlspecialchars(fixEntities($p['creator'])); ?></strong></p>
             </div>
         <?php endforeach; ?>
     </div>
+</main>
+
+<main id="playlist-page" style="display:none;">
+    <div class="artist-page-back" onclick="showSection('playlists')">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+        <span><?php echo htmlspecialchars(t('btn_back_playlists')); ?></span>
+    </div>
+    <div class="artist-hero">
+        <div class="artist-hero-bg"><img id="playlist-hero-bg-img" alt="" onerror="this.onerror=null;this.src='covers/default.png'"></div>
+        <div class="artist-hero-content">
+            <div class="playlist-cover-collage playlist-page-hero-collage" id="playlist-page-collage"></div>
+            <div class="artist-hero-info">
+                <h2 class="section-title" id="playlist-page-title"></h2>
+                <input type="text" id="playlist-page-title-input" class="playlist-title-input" style="display:none;" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" onblur="savePlaylistTitleInline()">
+                <p id="playlist-page-count"></p>
+                <p><span id="playlist-page-creator-text"></span><span class="playlist-private-badge" id="playlist-page-private-badge" style="display:none;">🔒 <?php echo htmlspecialchars(t('playlist_private_badge')); ?></span></p>
+                <div style="display:flex;gap:12px;margin-top:15px;flex-wrap:wrap;">
+                    <button class="btn btn-primary btn-labeled" onclick="playPlaylist(currentViewedPlaylist.song_ids, currentViewedPlaylist.id, false)">
+                        <svg class="btn-icon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                        <span class="btn-label"><?php echo htmlspecialchars(t('btn_play_album')); ?></span>
+                    </button>
+                    <button class="btn btn-outline btn-labeled" onclick="playPlaylist(currentViewedPlaylist.song_ids, currentViewedPlaylist.id, true)">
+                        <svg class="btn-icon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg>
+                        <span class="btn-label"><?php echo htmlspecialchars(t('btn_shuffle_play')); ?></span>
+                    </button>
+                    <div id="playlist-page-actions" style="display:none;gap:12px;">
+                        <button class="btn btn-outline" id="playlist-page-edit-btn" onclick="togglePlaylistEditMode()"><?php echo htmlspecialchars(t('btn_edit')); ?></button>
+                        <button class="btn btn-outline" onclick="openAddSongModal()"><?php echo htmlspecialchars(t('btn_add_song')); ?></button>
+                        <button class="btn btn-danger" onclick="deletePlaylist(currentViewedPlaylist.id)"><?php echo htmlspecialchars(t('btn_delete_short')); ?></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <p id="playlist-page-reorder-hint" style="display:none;font-size:.8em;color:var(--text-muted);margin:0 0 10px;"></p>
+    <div class="track-list" id="playlist-track-list"></div>
 </main>
 
 <main id="albums" style="display:none;">
@@ -1356,8 +1429,13 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
 <div id="playlistModal" class="modal"><div class="modal-content">
     <h2 id="modal-playlist-title" style="margin-top:0;"><?php echo htmlspecialchars(t('playlist_default_title')); ?></h2>
     <form id="playlist-form">
-        <input type="hidden" id="form-playlist-id">
-        <input type="text" id="form-playlist-name" placeholder="<?php echo htmlspecialchars(t('mix_name_ph')); ?>" required>
+        <div id="playlist-form-name-group">
+            <input type="text" id="form-playlist-name" placeholder="<?php echo htmlspecialchars(t('mix_name_ph')); ?>" required>
+            <label style="display:flex;align-items:center;gap:8px;margin:10px 0;cursor:pointer;">
+                <input type="checkbox" id="form-playlist-public" checked style="width:auto;">
+                <span style="font-size:.9em;"><?php echo htmlspecialchars(t('playlist_public_label')); ?></span>
+            </label>
+        </div>
         <input type="text" id="playlist-search" placeholder="<?php echo htmlspecialchars(t('search_dots_ph')); ?>" onkeyup="filterPlaylistTracks()" style="margin-bottom:10px;">
         <div style="display:flex;justify-content:space-between;font-size:.85em;color:var(--text-muted);margin-bottom:10px;">
             <span><?php echo htmlspecialchars(t('select_tracks_label')); ?></span><span id="selected-count">0<?php echo htmlspecialchars(t('selected_suffix')); ?></span>
@@ -1376,7 +1454,7 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         </div>
         <div style="display:flex;gap:15px;margin-top:20px;">
             <button type="button" class="btn" style="flex:1;justify-content:center;color:var(--text-muted);border:1px solid var(--border-color);" onclick="closeModal('playlistModal')"><?php echo htmlspecialchars(t('btn_cancel')); ?></button>
-            <button type="submit" class="btn btn-primary" style="flex:1;justify-content:center;"><?php echo htmlspecialchars(t('btn_save')); ?></button>
+            <button type="submit" class="btn btn-primary" id="playlist-form-submit-btn" style="flex:1;justify-content:center;"><?php echo htmlspecialchars(t('btn_save')); ?></button>
         </div>
     </form>
 </div></div>
@@ -1486,7 +1564,6 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
             selected_suffix: ' sélectionné(s)',
             word_and: 'et',
             new_playlist: 'Nouvelle Playlist',
-            edit_playlist: 'Modifier Playlist',
             no_music_available: 'Aucune musique disponible.',
             loading_lyrics: 'Chargement des paroles…',
             no_lyrics: 'Aucune parole disponible.',
@@ -1500,6 +1577,16 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
             loading_bio: 'Chargement de la biographie…',
             no_bio_available: 'Aucune description disponible.',
             wikipedia_link: 'Voir sur Wikipédia ↗',
+            created_by: 'Créé par',
+            playlist_private_badge: 'Privée',
+            drag_reorder_hint: 'Glisser pour réordonner',
+            move_up: 'Déplacer vers le haut',
+            move_down: 'Déplacer vers le bas',
+            remove_from_playlist: 'Retirer de la playlist',
+            btn_edit: 'Éditer',
+            btn_done: 'Terminé',
+            btn_add_song: 'Ajouter',
+            add_song_modal_title: 'Ajouter des titres',
         },
         en: {
             err_api_unreachable: 'Unable to reach api.php.',
@@ -1523,7 +1610,6 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
             selected_suffix: ' selected',
             word_and: 'and',
             new_playlist: 'New playlist',
-            edit_playlist: 'Edit playlist',
             no_music_available: 'No music available.',
             loading_lyrics: 'Loading lyrics…',
             no_lyrics: 'No lyrics available.',
@@ -1537,11 +1623,22 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
             loading_bio: 'Loading biography…',
             no_bio_available: 'No description available.',
             wikipedia_link: 'View on Wikipedia ↗',
+            created_by: 'Created by',
+            playlist_private_badge: 'Private',
+            drag_reorder_hint: 'Drag to reorder',
+            move_up: 'Move up',
+            move_down: 'Move down',
+            remove_from_playlist: 'Remove from playlist',
+            btn_edit: 'Edit',
+            btn_done: 'Done',
+            btn_add_song: 'Add songs',
+            add_song_modal_title: 'Add songs',
         },
     };
     function t(key) { return (I18N_STRINGS[LANG] && I18N_STRINGS[LANG][key]) || I18N_STRINGS.fr[key] || key; }
 
     const ALL_MUSIC_DATA   = <?php echo json_encode($all_tracks, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>;
+    const ALL_PLAYLISTS    = <?php echo json_encode($all_playlists, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>;
     const CURRENT_USER_ID  = <?php echo json_encode($user_id); ?>;
     const IS_ADMIN         = <?php echo json_encode($is_admin); ?>;
     // Couleurs par défaut du site (panneau admin), utilisées uniquement pour
@@ -1586,7 +1683,7 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
 
     let CURRENT_VIEW_DATA = []; let renderedCount = 0; const RENDER_CHUNK = 30;
     let originalQueue = []; let queue = []; let currentIndex = 0; let loopMode = 0; let isShuffle = false;
-    let currentPlaylistId = null; let currentSection = 'accueil'; let currentArtistName = null; let currentAlbumId = null;
+    let currentPlaylistId = null; let currentSection = 'accueil'; let currentArtistName = null; let currentAlbumId = null; let currentViewedPlaylist = null;
     let hiddenGenres = JSON.parse(localStorage.getItem('hiddenGenres') || '[]');
     let adaptiveThemeEnabled = (localStorage.getItem('theme_base') === 'adaptive');
     const adaptiveColorCache = new Map();
@@ -1673,6 +1770,7 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         if (currentSection !== 'accueil') params.set('page', currentSection);
         if (currentSection === 'artist-page' && currentArtistName) params.set('artist', currentArtistName);
         if (currentSection === 'album-page' && currentAlbumId) params.set('album', currentAlbumId);
+        if (currentSection === 'playlist-page' && currentViewedPlaylist) params.set('playlist', currentViewedPlaylist.id);
         if (queue[currentIndex]?.id) params.set('v', queue[currentIndex].id);
         if (currentPlaylistId) params.set('list', currentPlaylistId);
         window.history.pushState({}, '', window.location.pathname + '?' + params.toString());
@@ -1850,6 +1948,243 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
             listContainer.innerHTML = tracks.map((tr, i) => `<div class="track-item" style="animation-delay:${Math.min(i, 14) * 18}ms">${trackRowInnerHTML(tr, i + 1)}</div>`).join('');
         }
         showSection('album-page', doUrl);
+    }
+
+    // ── Page playlist : détail d'une playlist (titre, créateur, visibilité,
+    // pistes dans l'ordre de song_ids) — ouverte en cliquant sur sa carte.
+    let playlistEditMode = false;
+    let currentPlaylistCanEdit = false;
+
+    function showPlaylistPage(id, doUrl = true) {
+        closeFullPlayer();
+        id = parseInt(id);
+        const playlist = ALL_PLAYLISTS.find(p => parseInt(p.id) === id);
+        if (!playlist) { showSection('playlists', doUrl); return; }
+        currentViewedPlaylist = playlist;
+        currentPlaylistCanEdit = playlist.creator_id == CURRENT_USER_ID || IS_ADMIN;
+        playlistEditMode = false;
+        renderPlaylistPageContent();
+        showSection('playlist-page', doUrl);
+    }
+
+    // ── Reconstruit tout le contenu de la page playlist (hero, mosaïque,
+    // liste) depuis currentViewedPlaylist / ALL_MUSIC_DATA, sans naviguer
+    // ni toucher à playlistEditMode — utilisé après chaque mutation locale
+    // (reorder, remove, renommage) pour un rendu instantané façon YouTube
+    // Music, sans rechargement de page.
+    function renderPlaylistPageContent() {
+        const playlist = currentViewedPlaylist;
+        if (!playlist) return;
+
+        const songIds = String(playlist.song_ids || '').split(',').filter(Boolean).map(Number);
+        const tracks = songIds.map(tid => ALL_MUSIC_DATA.find(tr => tr.id === tid)).filter(Boolean);
+
+        document.getElementById('playlist-page-title').innerText = fixEntities(playlist.name);
+        document.getElementById('playlist-page-count').innerText = tracks.length + ' ' + t('tracks_count_label');
+        document.getElementById('playlist-page-creator-text').innerText = t('created_by') + ' ' + fixEntities(playlist.creator);
+
+        const isPublic = !('is_public' in playlist) || Number(playlist.is_public) === 1;
+        document.getElementById('playlist-page-private-badge').style.display = isPublic ? 'none' : 'inline-flex';
+
+        document.getElementById('playlist-page-actions').style.display = currentPlaylistCanEdit ? 'flex' : 'none';
+        updatePlaylistEditModeUI();
+
+        // Mosaïque de couvertures (jusqu'à 4, répétées si moins), même
+        // convention que les cartes de la grille playlists.
+        const covers = tracks.slice(0, 4).map(tr => tr.cover_url);
+        if (!covers.length) covers.push('covers/default.png');
+        const slots = covers.length === 1 ? 1 : 4;
+        const collage = document.getElementById('playlist-page-collage');
+        collage.classList.toggle('single', slots === 1);
+        collage.innerHTML = Array.from({ length: slots }, (_, i) =>
+            `<img src="${escapeHTML(covers[i % covers.length])}" loading="lazy" alt="" onerror="this.onerror=null;this.src='covers/default.png'">`
+        ).join('');
+
+        const heroBgImg = document.getElementById('playlist-hero-bg-img');
+        heroBgImg.classList.remove('loaded');
+        heroBgImg.onload = () => heroBgImg.classList.add('loaded');
+        heroBgImg.src = covers[0];
+
+        renderPlaylistTrackList(tracks, currentPlaylistCanEdit && playlistEditMode);
+    }
+
+    // ── Bascule le mode édition de la page playlist : c'est lui qui fait
+    // apparaître les poignées de glisser-déposer / flèches / ✕ sur la liste,
+    // et transforme le titre en champ éditable en place (pas de popup).
+    function togglePlaylistEditMode() {
+        if (!currentPlaylistCanEdit) return;
+        playlistEditMode = !playlistEditMode;
+        renderPlaylistPageContent();
+        if (playlistEditMode) {
+            const input = document.getElementById('playlist-page-title-input');
+            input.focus(); input.select();
+        }
+    }
+
+    function updatePlaylistEditModeUI() {
+        const btn = document.getElementById('playlist-page-edit-btn');
+        if (btn) {
+            btn.classList.toggle('btn-primary', playlistEditMode);
+            btn.classList.toggle('btn-outline', !playlistEditMode);
+            btn.innerText = playlistEditMode ? t('btn_done') : t('btn_edit');
+        }
+        const titleEl = document.getElementById('playlist-page-title');
+        const inputEl = document.getElementById('playlist-page-title-input');
+        if (playlistEditMode) {
+            inputEl.value = fixEntities(currentViewedPlaylist.name);
+            titleEl.style.display = 'none';
+            inputEl.style.display = 'block';
+        } else {
+            inputEl.style.display = 'none';
+            titleEl.style.display = '';
+        }
+    }
+
+    // ── Renommage en place : sauvegarde au blur/Enter du champ titre,
+    // seulement si le nom a réellement changé — pas de popup.
+    async function savePlaylistTitleInline() {
+        if (!currentViewedPlaylist || !playlistEditMode) return;
+        const input = document.getElementById('playlist-page-title-input');
+        const newName = input.value.trim();
+        if (!newName || newName === fixEntities(currentViewedPlaylist.name)) {
+            input.value = fixEntities(currentViewedPlaylist.name);
+            return;
+        }
+        const res = await apiCall('playlist_mod', { playlist_id: currentViewedPlaylist.id, mode: 'rename', new_name: newName });
+        if (res.status === 'success') {
+            currentViewedPlaylist.name = newName;
+            document.getElementById('playlist-page-title').innerText = fixEntities(currentViewedPlaylist.name);
+        } else {
+            alert(res.message || t('err_edit'));
+            input.value = fixEntities(currentViewedPlaylist.name);
+        }
+    }
+
+    // ── Liste des pistes d'une playlist, avec réordonnancement à la
+    // YouTube Music quand l'utilisateur en a les droits (propriétaire/admin) :
+    // glisser-déposer (souris) + flèches ▲▼ (accessible/tactile), le tout
+    // persisté instantanément via playlist_mod/mode=reorder, sans rechargement
+    // de page — seule la liste (et la mosaïque de couvertures) se met à jour.
+    function renderPlaylistTrackList(tracks, canEdit) {
+        const listContainer = document.getElementById('playlist-track-list');
+        const hint = document.getElementById('playlist-page-reorder-hint');
+        if (hint) {
+            hint.innerText = t('drag_reorder_hint');
+            hint.style.display = (canEdit && tracks.length > 1) ? 'block' : 'none';
+        }
+
+        if (!tracks.length) {
+            listContainer.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-muted);">${t('no_tracks_found')}</div>`;
+            return;
+        }
+        listContainer.innerHTML = tracks.map((tr, i) => `
+            <div class="track-item${canEdit ? ' pl-editable' : ''}" data-track-id="${tr.id}" ${canEdit ? 'draggable="true"' : ''} style="animation-delay:${Math.min(i, 14) * 18}ms">
+                ${renderPlaylistTrackRow(tr, i + 1, canEdit, tracks.length)}
+            </div>`).join('');
+        if (canEdit) attachPlaylistDragHandlers(listContainer);
+    }
+
+    function renderPlaylistTrackRow(tr, idx, canEdit, total) {
+        const safeTitle  = escapeHTML(fixEntities(tr.title));
+        const artistHTML = artistLinksHTML(tr.artist);
+        const albumHTML  = albumLinkHTML(tr);
+        const safeCover  = escapeHTML(tr.cover_url);
+        const dragHandle = canEdit ? `
+            <div class="pl-drag-handle" title="${t('drag_reorder_hint')}">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>
+            </div>` : '';
+        const actions = canEdit ? `
+            <div style="display:flex;align-items:center;gap:2px;">
+                <button class="pl-icon-btn" onclick="event.stopPropagation();movePlaylistTrack(${tr.id},-1)" ${idx === 1 ? 'disabled' : ''} title="${t('move_up')}">▲</button>
+                <button class="pl-icon-btn" onclick="event.stopPropagation();movePlaylistTrack(${tr.id},1)" ${idx === total ? 'disabled' : ''} title="${t('move_down')}">▼</button>
+                <button class="pl-icon-btn" onclick="event.stopPropagation();removeFromPlaylist(${tr.id})" title="${t('remove_from_playlist')}">✕</button>
+            </div>` : '';
+        return `
+            ${dragHandle}
+            <div class="track-index">${idx}</div>
+            <img src="${safeCover}" loading="lazy" class="mini-cover" onerror="this.onerror=null;this.src='covers/default.png'">
+            <div style="cursor:pointer;overflow:hidden;" onclick="playTrackById(${tr.id})">
+                <div style="font-weight:700;font-size:1.05em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px;">${safeTitle}</div>
+                <div style="font-size:.85em;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${artistHTML}${albumHTML}</div>
+            </div>
+            ${actions}`;
+    }
+
+    // ── Glisser-déposer natif (souris) : réordonne le DOM en direct pendant
+    // le drag, ne persiste (reorder) qu'au relâchement.
+    function attachPlaylistDragHandlers(container) {
+        let dragEl = null;
+        container.querySelectorAll('.track-item.pl-editable').forEach(item => {
+            item.addEventListener('dragstart', () => {
+                dragEl = item;
+                requestAnimationFrame(() => item.classList.add('dragging'));
+            });
+            item.addEventListener('dragend', () => {
+                item.classList.remove('dragging');
+                dragEl = null;
+                renumberPlaylistRows(container);
+                persistPlaylistOrder();
+            });
+            item.addEventListener('dragover', e => {
+                e.preventDefault();
+                if (!dragEl) return;
+                const after = getDragAfterElement(container, e.clientY);
+                if (after == null) container.appendChild(dragEl);
+                else container.insertBefore(dragEl, after);
+            });
+        });
+    }
+
+    function getDragAfterElement(container, y) {
+        const els = [...container.querySelectorAll('.track-item.pl-editable:not(.dragging)')];
+        return els.reduce((closest, child) => {
+            const box = child.getBoundingClientRect();
+            const offset = y - box.top - box.height / 2;
+            if (offset < 0 && offset > closest.offset) return { offset, element: child };
+            return closest;
+        }, { offset: -Infinity, element: null }).element;
+    }
+
+    function renumberPlaylistRows(container) {
+        container.querySelectorAll('.track-item').forEach((row, i) => {
+            const idxEl = row.querySelector('.track-index');
+            if (idxEl) idxEl.innerText = i + 1;
+        });
+    }
+
+    // ── Réordonnancement via les flèches ▲▼ : recalcule song_ids et
+    // ré-affiche la page depuis les données déjà en mémoire (pas d'appel
+    // réseau pour l'affichage, seule la persistance passe par l'API).
+    function movePlaylistTrack(trackId, dir) {
+        if (!currentViewedPlaylist) return;
+        const ids = String(currentViewedPlaylist.song_ids).split(',').filter(Boolean).map(Number);
+        const i = ids.indexOf(trackId);
+        const j = i + dir;
+        if (i === -1 || j < 0 || j >= ids.length) return;
+        [ids[i], ids[j]] = [ids[j], ids[i]];
+        currentViewedPlaylist.song_ids = ids.join(',');
+        renderPlaylistPageContent();
+        persistPlaylistOrder();
+    }
+
+    async function persistPlaylistOrder() {
+        if (!currentViewedPlaylist) return;
+        const container = document.getElementById('playlist-track-list');
+        const ids = [...container.querySelectorAll('.track-item[data-track-id]')].map(el => el.dataset.trackId);
+        const csv = ids.join(',');
+        currentViewedPlaylist.song_ids = csv;
+        const res = await apiCall('playlist_mod', { playlist_id: currentViewedPlaylist.id, mode: 'reorder', song_ids: csv });
+        if (res.status !== 'success') alert(res.message || t('err_generic'));
+    }
+
+    async function removeFromPlaylist(trackId) {
+        if (!currentViewedPlaylist) return;
+        const res = await apiCall('playlist_mod', { playlist_id: currentViewedPlaylist.id, mode: 'remove', track_id: trackId });
+        if (res.status === 'success') {
+            const ids = String(currentViewedPlaylist.song_ids).split(',').filter(Boolean).map(Number).filter(id => id !== trackId);
+            currentViewedPlaylist.song_ids = ids.join(',');
+            renderPlaylistPageContent();
+        } else alert(res.message || t('err_delete'));
     }
 
     // ── Biographie Wikipedia : REST API publique (CORS ouvert), interrogée
@@ -2100,6 +2435,7 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         const p = new URLSearchParams(window.location.search);
         if (p.get('page') === 'artist-page' && p.get('artist')) showArtistPage(p.get('artist'), false);
         else if (p.get('page') === 'album-page' && p.get('album')) showAlbumPage(parseInt(p.get('album')), false);
+        else if (p.get('page') === 'playlist-page' && p.get('playlist')) showPlaylistPage(parseInt(p.get('playlist')), false);
         else if (p.get('page')) showSection(p.get('page'), false);
         if (p.get('list')) currentPlaylistId = p.get('list');
         if (p.get('v'))    playTrackById(p.get('v'), false);
@@ -2194,11 +2530,16 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         loadTrack(autoPlay);
     }
 
-    async function playPlaylist(ids, pId = null) {
+    async function playPlaylist(ids, pId = null, forceShuffle = null) {
         const idList = String(ids).split(',').map(Number).filter(Boolean);
         let data = idList.map(id => ALL_MUSIC_DATA.find(t => t.id === id)).filter(Boolean);
         if (hiddenGenres.length) data = data.filter(t => !hiddenGenres.includes(t.genre || 'Autre'));
         if (!data.length) { alert(t('no_music_available')); return; }
+        if (forceShuffle !== null) {
+            isShuffle = forceShuffle;
+            document.getElementById('shuffleBtn').classList.toggle('active', isShuffle);
+            document.getElementById('fp-shuffleBtn').classList.toggle('active', isShuffle);
+        }
         currentPlaylistId = pId; originalQueue = [...data];
         queue = isShuffle ? shuffleArray([...data]) : [...data];
         currentIndex = 0; loadTrack(true);
@@ -2392,7 +2733,7 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
 
     function showSection(id, doUrl = true) {
         if (document.getElementById('full-player').classList.contains('active')) closeFullPlayer();
-        ['accueil', 'playlists', 'albums', 'artists', 'artist-page', 'album-page'].forEach(sectionId => {
+        ['accueil', 'playlists', 'albums', 'artists', 'artist-page', 'album-page', 'playlist-page'].forEach(sectionId => {
             const el = document.getElementById(sectionId);
             if (sectionId === id) {
                 el.style.display = 'block';
@@ -2409,6 +2750,7 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         document.getElementById('mob-nav-' + id)?.classList.add('active');
         if (id !== 'artist-page') currentArtistName = null;
         if (id !== 'album-page') currentAlbumId = null;
+        if (id !== 'playlist-page') currentViewedPlaylist = null;
         window.scrollTo(0, 0); currentSection = id; if (doUrl) updateUrl();
     }
 
@@ -2489,39 +2831,46 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
     }
 
     // ── Playlists (via api.php) ───────────────────────────────────
-    // api.php n'a pas de mode "remplacer toute la liste" : on calcule le
-    // delta entre la sélection d'origine et la nouvelle, puis on envoie
-    // une suite d'appels add/remove — comme le ferait un client mobile.
-    let editingPlaylistOriginalIds = [];
+    // playlistModal sert à deux choses : créer un mix (mode 'create', avec
+    // nom + visibilité + sélection initiale) ou ajouter des titres à une
+    // playlist déjà ouverte (mode 'add-songs', déclenché depuis le bouton
+    // "Ajouter" de la page playlist — le renommage et le retrait de titres
+    // se font désormais en place sur cette page, plus besoin de modale).
+    let playlistModalMode = 'create';
+
     async function handlePlaylistSubmit(e) {
         e.preventDefault();
-        const name = document.getElementById('form-playlist-name').value.trim();
-        const pid  = document.getElementById('form-playlist-id').value;
-        const selectedIds = Array.from(document.querySelectorAll('.song-cb:checked')).map(cb => parseInt(cb.dataset.id, 10));
         const btn = e.target.querySelector('button[type=submit]');
         btn.disabled = true;
         try {
-            if (!pid) {
-                const createRes = await apiCall('playlist_create', { name });
-                if (createRes.status !== 'success') { alert(createRes.message || t('err_generic')); return; }
-                const playlists = await fetch('api.php?action=playlists').then(r => r.json());
-                const mine = Array.isArray(playlists)
-                    ? playlists.filter(p => p.name === name && p.creator === API_AUTH.username)
-                    : [];
-                const created = mine.sort((a, b) => b.id - a.id)[0];
-                if (created) {
-                    for (const id of selectedIds) {
-                        await apiCall('playlist_mod', { playlist_id: created.id, mode: 'add', track_id: id });
-                    }
+            const selectedIds = Array.from(document.querySelectorAll('.song-cb:checked')).map(cb => parseInt(cb.dataset.id, 10));
+
+            if (playlistModalMode === 'add-songs') {
+                if (!currentViewedPlaylist || !selectedIds.length) { closeModal('playlistModal'); return; }
+                for (const id of selectedIds) {
+                    await apiCall('playlist_mod', { playlist_id: currentViewedPlaylist.id, mode: 'add', track_id: id });
                 }
-            } else {
-                const originalIds = editingPlaylistOriginalIds.map(Number);
-                const toAdd    = selectedIds.filter(id => !originalIds.includes(id));
-                const toRemove = originalIds.filter(id => !selectedIds.includes(id));
-                const renameRes = await apiCall('playlist_mod', { playlist_id: pid, mode: 'rename', new_name: name });
-                if (renameRes.status !== 'success') { alert(renameRes.message || t('err_generic')); return; }
-                for (const id of toAdd)    await apiCall('playlist_mod', { playlist_id: pid, mode: 'add', track_id: id });
-                for (const id of toRemove) await apiCall('playlist_mod', { playlist_id: pid, mode: 'remove', track_id: id });
+                const ids = String(currentViewedPlaylist.song_ids || '').split(',').filter(Boolean).map(Number);
+                selectedIds.forEach(id => { if (!ids.includes(id)) ids.push(id); });
+                currentViewedPlaylist.song_ids = ids.join(',');
+                closeModal('playlistModal');
+                renderPlaylistPageContent();
+                return;
+            }
+
+            const name = document.getElementById('form-playlist-name').value.trim();
+            const isPublic = document.getElementById('form-playlist-public').checked;
+            const createRes = await apiCall('playlist_create', { name, is_public: isPublic ? '1' : '0' });
+            if (createRes.status !== 'success') { alert(createRes.message || t('err_generic')); return; }
+            const playlists = await fetch('api.php?action=playlists').then(r => r.json());
+            const mine = Array.isArray(playlists)
+                ? playlists.filter(p => p.name === name && p.creator === API_AUTH.username)
+                : [];
+            const created = mine.sort((a, b) => b.id - a.id)[0];
+            if (created) {
+                for (const id of selectedIds) {
+                    await apiCall('playlist_mod', { playlist_id: created.id, mode: 'add', track_id: id });
+                }
             }
             location.reload();
         } finally {
@@ -2529,10 +2878,18 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
         }
     }
 
+    // En mode "add-songs", les titres déjà présents dans la playlist restent
+    // masqués même hors recherche : on ne peut qu'ajouter, jamais retirer,
+    // depuis cette modale (le ✕ de la page playlist s'en charge).
     function filterPlaylistTracks() {
         const term = document.getElementById('playlist-search').value.toLowerCase();
+        const existingIds = (playlistModalMode === 'add-songs' && currentViewedPlaylist)
+            ? String(currentViewedPlaylist.song_ids || '').split(',').filter(Boolean).map(Number)
+            : [];
         document.querySelectorAll('.song-select-item').forEach(item => {
-            item.style.display = item.dataset.title.includes(term) ? 'flex' : 'none';
+            const id = parseInt(item.querySelector('.song-cb').dataset.id, 10);
+            const matches = item.dataset.title.includes(term) && !existingIds.includes(id);
+            item.style.display = matches ? 'flex' : 'none';
         });
     }
 
@@ -2546,29 +2903,32 @@ if (!is_array($all_playlists) || (isset($all_playlists['status']))) $all_playlis
     }
 
     function openCreateModal() {
+        playlistModalMode = 'create';
         document.getElementById('modal-playlist-title').innerText = t('new_playlist');
-        document.getElementById('form-playlist-id').value = '';
+        document.getElementById('playlist-form-name-group').style.display = '';
+        document.getElementById('form-playlist-name').required = true;
         document.getElementById('form-playlist-name').value = '';
+        document.getElementById('form-playlist-public').checked = true;
         document.getElementById('playlist-search').value = '';
-        editingPlaylistOriginalIds = [];
+        document.getElementById('playlist-form-submit-btn').innerText = t('btn_save');
         document.querySelectorAll('.song-select-item').forEach(div => { div.classList.remove('selected'); div.style.display = 'flex'; });
         document.querySelectorAll('.song-cb').forEach(cb => cb.checked = false);
         updateSelectedCount(); openModal('playlistModal');
     }
 
-    function openEditModal(p) {
-        document.getElementById('modal-playlist-title').innerText = t('edit_playlist');
-        document.getElementById('form-playlist-id').value = p.id;
-        document.getElementById('form-playlist-name').value = fixEntities(p.name);
+    // ── Ajout de titres à la playlist actuellement ouverte : les titres déjà
+    // présents sont pré-masqués par filterPlaylistTracks(), donc tout ce qui
+    // est coché ici est forcément nouveau.
+    function openAddSongModal() {
+        if (!currentViewedPlaylist) return;
+        playlistModalMode = 'add-songs';
+        document.getElementById('modal-playlist-title').innerText = t('add_song_modal_title');
+        document.getElementById('playlist-form-name-group').style.display = 'none';
+        document.getElementById('form-playlist-name').required = false;
         document.getElementById('playlist-search').value = '';
-        const ids = String(p.song_ids).split(',').filter(Boolean);
-        editingPlaylistOriginalIds = ids;
-        document.querySelectorAll('.song-select-item').forEach(div => {
-            const cb = div.querySelector('.song-cb');
-            cb.checked = ids.includes(cb.dataset.id);
-            cb.checked ? div.classList.add('selected') : div.classList.remove('selected');
-            div.style.display = 'flex';
-        });
+        document.getElementById('playlist-form-submit-btn').innerText = t('btn_add_song');
+        document.querySelectorAll('.song-select-item').forEach(div => { div.classList.remove('selected'); div.querySelector('.song-cb').checked = false; });
+        filterPlaylistTracks();
         updateSelectedCount(); openModal('playlistModal');
     }
 
