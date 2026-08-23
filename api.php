@@ -53,7 +53,8 @@ try {
         id         INT AUTO_INCREMENT PRIMARY KEY,
         name       VARCHAR(100),
         creator_id INT,
-        song_ids   TEXT
+        song_ids   TEXT,
+        is_public  TINYINT(1) NOT NULL DEFAULT 1
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
     // --- SÉCURITÉ : Table de rate limiting pour les tentatives de login ---
@@ -765,7 +766,19 @@ switch($action) {
         break;
 
     case 'playlists':
-        echo json_encode($db->query("SELECT p.*, u.username as creator FROM playlists p JOIN users u ON p.creator_id = u.id")->fetchAll(PDO::FETCH_ASSOC));
+        // --- VISIBILITÉ : sans identifiants valides, seules les playlists
+        // publiques sont renvoyées ; un utilisateur authentifié voit aussi
+        // ses propres playlists privées ; un admin voit tout. ---
+        $auth = authenticate_api_user($db);
+        if ($auth && $auth['is_admin']) {
+            $stmt = $db->query("SELECT p.*, u.username as creator FROM playlists p JOIN users u ON p.creator_id = u.id");
+        } elseif ($auth) {
+            $stmt = $db->prepare("SELECT p.*, u.username as creator FROM playlists p JOIN users u ON p.creator_id = u.id WHERE p.is_public = 1 OR p.creator_id = ?");
+            $stmt->execute([$auth['id']]);
+        } else {
+            $stmt = $db->query("SELECT p.*, u.username as creator FROM playlists p JOIN users u ON p.creator_id = u.id WHERE p.is_public = 1");
+        }
+        echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
         break;
 
     case 'playlist_create':
@@ -773,7 +786,8 @@ switch($action) {
         if (!$auth) { echo json_encode(["status" => "error", "message" => "Accès refusé. Identifiants invalides."]); exit; }
 
         $playlistName = sanitize_text($_POST['name'] ?? 'Playlist', 100);
-        $db->prepare("INSERT INTO playlists (name, creator_id, song_ids) VALUES (?, ?, '')")->execute([$playlistName, $auth['id']]);
+        $isPublic = isset($_POST['is_public']) && ($_POST['is_public'] === '0' || $_POST['is_public'] === 'false') ? 0 : 1;
+        $db->prepare("INSERT INTO playlists (name, creator_id, song_ids, is_public) VALUES (?, ?, '', ?)")->execute([$playlistName, $auth['id'], $isPublic]);
         echo json_encode(["status" => "success"]);
         break;
 
@@ -793,6 +807,27 @@ switch($action) {
             } elseif ($mode === 'rename') {
                 $newName = sanitize_text($_POST['new_name'] ?? 'Playlist', 100);
                 $db->prepare("UPDATE playlists SET name=? WHERE id=?")->execute([$newName, $pid]);
+            } elseif ($mode === 'visibility') {
+                $isPublic = isset($_POST['is_public']) && ($_POST['is_public'] === '0' || $_POST['is_public'] === 'false') ? 0 : 1;
+                $db->prepare("UPDATE playlists SET is_public=? WHERE id=?")->execute([$isPublic, $pid]);
+            } elseif ($mode === 'reorder') {
+                // --- SÉCURITÉ : le nouvel ordre doit contenir exactement le même
+                // ensemble de pistes que l'actuel (aucun ajout/retrait possible
+                // via ce mode, réservé à add/remove) ---
+                $rawIds = array_filter(explode(',', $curr['song_ids']));
+                $currentIds = array_values(array_filter(array_map('intval', $rawIds), fn($v) => $v > 0));
+
+                $rawNewIds = array_filter(explode(',', $_POST['song_ids'] ?? ''));
+                $newIds = array_values(array_filter(array_map('intval', $rawNewIds), fn($v) => $v > 0));
+
+                $sortedCurrent = $currentIds; sort($sortedCurrent);
+                $sortedNew = $newIds; sort($sortedNew);
+
+                if ($sortedCurrent !== $sortedNew) {
+                    echo json_encode(["status" => "error", "message" => "L'ordre fourni ne correspond pas aux pistes actuelles de la playlist"]); exit;
+                }
+
+                $db->prepare("UPDATE playlists SET song_ids=? WHERE id=?")->execute([implode(',', $newIds), $pid]);
             } else {
                 // --- SÉCURITÉ : Validation stricte des song_ids (entiers positifs uniquement) ---
                 $rawIds = array_filter(explode(',', $curr['song_ids']));
