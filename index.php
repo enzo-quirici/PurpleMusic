@@ -1807,7 +1807,12 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
         if (names.length <= 1) {
             return `<span class="artist-link" onclick="event.stopPropagation();showArtistPage('${jsAttrEscape(decoded)}')">${escapeHTML(decoded)}</span>`;
         }
-        return names.map(n => `<span class="artist-link" onclick="event.stopPropagation();showArtistPage('${jsAttrEscape(n)}')">${escapeHTML(n)}</span>`).join(', ');
+        const links = names.map(n => `<span class="artist-link" onclick="event.stopPropagation();showArtistPage('${jsAttrEscape(n)}')">${escapeHTML(n)}</span>`);
+        // "A & B" (donc "A and B" une fois fixEntities() appliqué) doit se lire
+        // "A and B", pas "A, B" : virgules entre tous les noms sauf les deux
+        // derniers, reliés par le mot de liaison localisé (word_and).
+        const last = links.pop();
+        return links.length ? links.join(', ') + ` ${t('word_and')} ` + last : last;
     }
 
     // Rend le nom d'album d'une piste sous forme de lien cliquable vers sa
@@ -3439,7 +3444,13 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
 
         panel.innerHTML = `<p class="lyrics-status">${t('loading_lyrics')}</p>`;
         try {
-            const url = 'https://lrclib.net/api/get?artist_name=' + encodeURIComponent(track.artist || '') + '&track_name=' + encodeURIComponent(track.title || '');
+            // lrclib ne retrouve pas les paroles si artist_name contient plusieurs
+            // artistes reliés par "&"/"and"/"et" (ex: "A & B") : on ne cherche que
+            // sur l'artiste principal, comme splitArtistNames() le fait déjà pour
+            // les liens cliquables.
+            const primaryArtist = splitArtistNames(fixEntities(track.artist || ''))[0] || track.artist || '';
+            const cleanTitle = fixEntities(track.title || '');
+            const url = 'https://lrclib.net/api/get?artist_name=' + encodeURIComponent(primaryArtist) + '&track_name=' + encodeURIComponent(cleanTitle);
             const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
             if (myReq !== lyricsRequestId) return;
             if (res.status === 404) { panel.innerHTML = `<p class="lyrics-status">${t('no_lyrics')}</p>`; return; }
