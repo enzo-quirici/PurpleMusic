@@ -1222,6 +1222,10 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
                 <input type="text" id="playlist-page-title-input" class="playlist-title-input" style="display:none;" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" onblur="savePlaylistTitleInline()">
                 <p id="playlist-page-count"></p>
                 <p><span id="playlist-page-creator-text"></span><span class="playlist-private-badge" id="playlist-page-private-badge" style="display:none;">🔒 <?php echo htmlspecialchars(t('playlist_private_badge')); ?></span></p>
+                <label id="playlist-page-visibility-toggle" style="display:none;align-items:center;gap:8px;margin:8px 0 0;cursor:pointer;">
+                    <input type="checkbox" id="playlist-page-public-checkbox" onchange="togglePlaylistVisibility(this.checked)" style="width:auto;">
+                    <span style="font-size:.85em;color:rgba(255,255,255,.75);"><?php echo htmlspecialchars(t('playlist_public_label')); ?></span>
+                </label>
                 <div style="display:flex;gap:12px;margin-top:15px;flex-wrap:wrap;">
                     <button class="btn btn-primary btn-labeled" onclick="playPlaylist(currentViewedPlaylist.song_ids, currentViewedPlaylist.id, false)">
                         <svg class="btn-icon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
@@ -1803,7 +1807,12 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
         if (names.length <= 1) {
             return `<span class="artist-link" onclick="event.stopPropagation();showArtistPage('${jsAttrEscape(decoded)}')">${escapeHTML(decoded)}</span>`;
         }
-        return names.map(n => `<span class="artist-link" onclick="event.stopPropagation();showArtistPage('${jsAttrEscape(n)}')">${escapeHTML(n)}</span>`).join(', ');
+        const links = names.map(n => `<span class="artist-link" onclick="event.stopPropagation();showArtistPage('${jsAttrEscape(n)}')">${escapeHTML(n)}</span>`);
+        // "A & B" (donc "A and B" une fois fixEntities() appliqué) doit se lire
+        // "A and B", pas "A, B" : virgules entre tous les noms sauf les deux
+        // derniers, reliés par le mot de liaison localisé (word_and).
+        const last = links.pop();
+        return links.length ? links.join(', ') + ` ${t('word_and')} ` + last : last;
     }
 
     // Rend le nom d'album d'une piste sous forme de lien cliquable vers sa
@@ -2037,6 +2046,27 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
         } else {
             inputEl.style.display = 'none';
             titleEl.style.display = '';
+        }
+
+        const visToggle = document.getElementById('playlist-page-visibility-toggle');
+        if (visToggle) {
+            visToggle.style.display = playlistEditMode ? 'inline-flex' : 'none';
+            const isPublic = !('is_public' in currentViewedPlaylist) || Number(currentViewedPlaylist.is_public) === 1;
+            document.getElementById('playlist-page-public-checkbox').checked = isPublic;
+        }
+    }
+
+    // ── Visibilité (publique/privée) : bascule immédiate au clic sur la
+    // case, disponible uniquement en mode édition — pas de popup non plus.
+    async function togglePlaylistVisibility(isPublic) {
+        if (!currentViewedPlaylist) return;
+        const res = await apiCall('playlist_mod', { playlist_id: currentViewedPlaylist.id, mode: 'visibility', is_public: isPublic ? '1' : '0' });
+        if (res.status === 'success') {
+            currentViewedPlaylist.is_public = isPublic ? 1 : 0;
+            document.getElementById('playlist-page-private-badge').style.display = isPublic ? 'none' : 'inline-flex';
+        } else {
+            alert(res.message || t('err_generic'));
+            document.getElementById('playlist-page-public-checkbox').checked = !isPublic;
         }
     }
 
@@ -3414,7 +3444,13 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
 
         panel.innerHTML = `<p class="lyrics-status">${t('loading_lyrics')}</p>`;
         try {
-            const url = 'https://lrclib.net/api/get?artist_name=' + encodeURIComponent(track.artist || '') + '&track_name=' + encodeURIComponent(track.title || '');
+            // lrclib ne retrouve pas les paroles si artist_name contient plusieurs
+            // artistes reliés par "&"/"and"/"et" (ex: "A & B") : on ne cherche que
+            // sur l'artiste principal, comme splitArtistNames() le fait déjà pour
+            // les liens cliquables.
+            const primaryArtist = splitArtistNames(fixEntities(track.artist || ''))[0] || track.artist || '';
+            const cleanTitle = fixEntities(track.title || '');
+            const url = 'https://lrclib.net/api/get?artist_name=' + encodeURIComponent(primaryArtist) + '&track_name=' + encodeURIComponent(cleanTitle);
             const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
             if (myReq !== lyricsRequestId) return;
             if (res.status === 404) { panel.innerHTML = `<p class="lyrics-status">${t('no_lyrics')}</p>`; return; }
