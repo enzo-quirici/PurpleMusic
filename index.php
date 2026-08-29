@@ -289,6 +289,7 @@ $I18N = [
     'header_settings'         => ['fr' => 'Paramètres',                     'en' => 'Settings'],
     'header_logout'           => ['fr' => 'Sortir',                         'en' => 'Log out'],
     'search_placeholder'      => ['fr' => 'Rechercher titre, artiste...',   'en' => 'Search title, artist...'],
+    'btn_clear_search'        => ['fr' => 'Effacer la recherche',           'en' => 'Clear search'],
     'sidebar_toggle_title'    => ['fr' => 'Réduire/agrandir le menu',       'en' => 'Collapse/expand menu'],
     'admin_title'             => ['fr' => 'Configuration Système',          'en' => 'System Configuration'],
     'admin_section_general'   => ['fr' => 'Général',                        'en' => 'General'],
@@ -318,6 +319,7 @@ $I18N = [
     'btn_cancel'              => ['fr' => 'Annuler',                        'en' => 'Cancel'],
     'btn_save'                => ['fr' => 'Enregistrer',                    'en' => 'Save'],
     'section_all_tracks'      => ['fr' => 'Toutes les pistes',              'en' => 'All tracks'],
+    'songs_title'             => ['fr' => 'Chansons',                       'en' => 'Songs'],
     'sort_title'              => ['fr' => 'Trier',                          'en' => 'Sort'],
     'sort_popular'            => ['fr' => 'Les plus écoutés',               'en' => 'Most played'],
     'sort_date_desc'          => ['fr' => 'Ajouts récents',                 'en' => 'Recently added'],
@@ -722,8 +724,17 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
         /* Barre supérieure du contenu : nom de l'app + recherche, toujours visible (sticky) */
         #content-topbar { position:fixed; top:0; left:0; width:100%; height:70px; z-index:110; box-sizing:border-box; display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:25px; padding:0 30px; background:var(--header-bg); backdrop-filter:blur(15px); border-bottom:1px solid rgba(var(--border-color-rgb),.5); }
         .topbar-appname { grid-column:1; justify-self:start; font-weight:800; font-size:1.3em; color:var(--accent); white-space:nowrap; letter-spacing:-.5px; flex-shrink:0; }
-        .topbar-search { grid-column:2; justify-self:center; width:480px; max-width:90vw; }
-        .topbar-search .search-input { height:44px; }
+        .topbar-search { grid-column:2; justify-self:center; width:480px; max-width:90vw; position:relative; }
+        /* La règle générique "input[type=text],..." (formulaires des modales, plus
+           bas) a une spécificité égale ou supérieure à .search-input seule et est
+           déclarée après elle dans la feuille de style : sans ces resets explicites
+           (spécificité plus élevée grâce à .topbar-search .search-input), elle lui
+           imposait sa marge (10px/20px, qui décentrait le bouton ✕), son padding,
+           son border-radius et son fond — cassant la pilule de recherche voulue. */
+        .topbar-search .search-input { height:44px; margin:0; padding:0 40px 0 25px; border-radius:50px; background:var(--search-bg); }
+        .search-clear-btn { display:none; position:absolute; right:6px; top:50%; transform:translateY(-50%); width:28px; height:28px; padding:0; align-items:center; justify-content:center; background:none; border:none; cursor:pointer; color:var(--text-muted); border-radius:50%; }
+        .search-clear-btn.visible { display:flex; }
+        .search-clear-btn:hover { color:var(--text); background:rgba(255,255,255,.08); }
 
         .filter-wrapper { position:relative; width:50px; height:50px; flex-shrink:0; }
         .filter-icon-visual { width:100%; height:100%; background:var(--search-bg); border:1px solid rgba(var(--border-color-rgb),.5); border-radius:50%; display:flex; align-items:center; justify-content:center; color:var(--accent); box-shadow:0 4px 10px rgba(0,0,0,.2); transition:.3s; }
@@ -925,8 +936,13 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
         .fp-art-container { width:100%; max-width:560px; }
         #fp-cover { width:100%; height:auto; aspect-ratio:1/1; object-fit:cover; border-radius:8px; box-shadow:0 20px 60px rgba(0,0,0,.5); display:block; }
 
-        #fp-sidebar { width:400px; flex-shrink:0; background:rgba(0,0,0,.25); backdrop-filter:blur(20px); border-left:1px solid rgba(255,255,255,.08); box-sizing:border-box; overflow:hidden; display:flex; flex-direction:column; transition:width .3s cubic-bezier(.2,.8,.2,1); }
-        .fp-sidebar-tabs { display:flex; align-items:center; flex-shrink:0; border-bottom:1px solid rgba(255,255,255,.08); }
+        /* transform:translateZ(0) force Safari/WebKit à mettre ce panneau flouté
+           (backdrop-filter) sur sa propre couche de composition : sans ça, un
+           changement de contenu (paroles chargées/absentes) peut ne pas être
+           repeint et la barre d'onglets Queue/Paroles reste visuellement figée
+           (invisible) jusqu'au prochain repaint forcé par autre chose. */
+        #fp-sidebar { width:400px; flex-shrink:0; background:rgba(0,0,0,.25); backdrop-filter:blur(20px); border-left:1px solid rgba(255,255,255,.08); box-sizing:border-box; overflow:hidden; display:flex; flex-direction:column; transition:width .3s cubic-bezier(.2,.8,.2,1); transform:translateZ(0); -webkit-transform:translateZ(0); }
+        .fp-sidebar-tabs { display:flex; align-items:center; flex-shrink:0; border-bottom:1px solid rgba(255,255,255,.08); transform:translateZ(0); }
         .fp-tab-btn { flex:1; background:none; border:none; padding:20px 10px; color:var(--player-text); opacity:.55; cursor:pointer; font-weight:700; font-size:.75em; letter-spacing:1px; text-transform:uppercase; white-space:nowrap; border-bottom:2px solid transparent; transition:.2s; }
         .fp-tab-btn:hover { opacity:.85; }
         .fp-tab-btn.active { opacity:1; border-bottom-color:var(--accent); color:var(--accent); }
@@ -1079,7 +1095,8 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
         <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M19.4 13c0-.3.1-.6.1-1s0-.7-.1-1l2.1-1.7c.2-.2.2-.4.1-.6l-2-3.5c-.1-.2-.3-.3-.6-.2l-2.5 1c-.5-.4-1.1-.7-1.7-1l-.4-2.7c0-.2-.2-.4-.5-.4h-4c-.3 0-.5.2-.5.4l-.4 2.7c-.6.2-1.2.6-1.7 1l-2.5-1c-.2-.1-.5 0-.6.2l-2 3.5c-.1.2-.1.5.1.6L4.6 11c-.1.3-.1.6-.1 1s0 .7.1 1l-2.1 1.7c-.2.2-.2.4-.1.6l2 3.5c.1.2.3.3.6.2l2.5-1c.5.4 1.1.7 1.7 1l.4 2.7c0 .2.2.4.5.4h4c.3 0 .5-.2.5-.4l.4-2.7c.6-.2 1.2-.6 1.7-1l2.5 1c.2.1.5 0 .6-.2l2-3.5c.1-.2.1-.5-.1-.6L19.4 13zM12 15.5c-1.9 0-3.5-1.6-3.5-3.5s1.6-3.5 3.5-3.5 3.5 1.6 3.5 3.5-1.6 3.5-3.5 3.5z"/></svg>
     </button>
     <div class="topbar-search">
-        <input type="text" id="searchInput" class="search-input" placeholder="<?php echo htmlspecialchars(t('search_placeholder')); ?>" onkeyup="onSearchInput()">
+        <input type="text" id="searchInput" class="search-input" placeholder="<?php echo htmlspecialchars(t('search_placeholder')); ?>" onkeyup="onSearchInput()" onkeydown="handleSearchKeydown(event)">
+        <button type="button" class="search-clear-btn" id="searchClearBtn" onclick="clearSearch()" title="<?php echo htmlspecialchars(t('btn_clear_search')); ?>" aria-label="<?php echo htmlspecialchars(t('btn_clear_search')); ?>"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
     </div>
 </div>
 
@@ -1159,8 +1176,16 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
 <main id="accueil">
     <div class="genre-pill-track" id="genre-pills-track"></div>
     <div id="home-carousels"></div>
+    <div id="search-artists-section" style="display:none;">
+        <h2 class="section-title" style="margin-bottom:25px;"><?php echo htmlspecialchars(t('artists_title')); ?></h2>
+        <div class="cards-wrap" id="search-artists-grid"></div>
+    </div>
+    <div id="search-albums-section" style="display:none;">
+        <h2 class="section-title" style="margin-bottom:25px;"><?php echo htmlspecialchars(t('albums_title')); ?></h2>
+        <div class="cards-wrap" id="search-albums-grid"></div>
+    </div>
     <div class="controls-container">
-        <h2 class="section-title" style="margin-bottom:0;"><?php echo htmlspecialchars(t('section_all_tracks')); ?></h2>
+        <h2 class="section-title" id="tracks-section-title" style="margin-bottom:0;"><?php echo htmlspecialchars(t('section_all_tracks')); ?></h2>
         <div class="search-row" style="width:auto;justify-content:flex-end;">
             <div class="filter-wrapper" title="<?php echo htmlspecialchars(t('sort_title')); ?>">
                 <div class="filter-icon-visual">
@@ -1591,6 +1616,8 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
             btn_done: 'Terminé',
             btn_add_song: 'Ajouter',
             add_song_modal_title: 'Ajouter des titres',
+            section_all_tracks: 'Toutes les pistes',
+            songs_title: 'Chansons',
         },
         en: {
             err_api_unreachable: 'Unable to reach api.php.',
@@ -1637,6 +1664,8 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
             btn_done: 'Done',
             btn_add_song: 'Add songs',
             add_song_modal_title: 'Add songs',
+            section_all_tracks: 'All tracks',
+            songs_title: 'Songs',
         },
     };
     function t(key) { return (I18N_STRINGS[LANG] && I18N_STRINGS[LANG][key]) || I18N_STRINGS.fr[key] || key; }
@@ -1766,7 +1795,27 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
         // de recherche est vidée.
         const carousels = document.getElementById('home-carousels');
         if (carousels) carousels.style.display = term === '' ? '' : 'none';
+        document.getElementById('searchClearBtn').classList.toggle('visible', term !== '');
         clearTimeout(searchTimeout); searchTimeout = setTimeout(filterAndSortTracks, 250);
+    }
+
+    function clearSearch() {
+        const input = document.getElementById('searchInput');
+        input.value = '';
+        onSearchInput();
+        input.focus();
+    }
+
+    // Certains environnements (ex: raccourcis clavier système sur macOS, où
+    // Ctrl+A vaut "aller au début de ligne" et non "tout sélectionner") ne
+    // laissent pas le champ sélectionner tout son texte avec Ctrl+A/Cmd+A par
+    // défaut : on le force explicitement ici pour un comportement cohérent
+    // partout.
+    function handleSearchKeydown(e) {
+        if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === 'a' || e.key === 'A')) {
+            e.preventDefault();
+            e.target.select();
+        }
     }
 
     function updateUrl() {
@@ -1823,7 +1872,7 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
         return ` <span style="opacity:.6;">•</span> <span class="artist-link" onclick="event.stopPropagation();showAlbumPage(${parseInt(track.album_id)})">${escapeHTML(decoded)}</span>`;
     }
 
-    function trackRowInnerHTML(t, idx) {
+    function trackRowInnerHTML(t, idx, context = null) {
         const safeTitle  = escapeHTML(fixEntities(t.title));
         const artistHTML = artistLinksHTML(t.artist);
         const albumHTML  = albumLinkHTML(t);
@@ -1844,10 +1893,17 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
                 <button class="btn btn-outline" style="font-size:.7em;padding:6px 10px;border-radius:8px;" onclick="openEditTrackModal(${t.id},'${jsTitle}','${jsArtist}','${jsGenre}','${jsAlbum}')">✎</button>
                 <button class="btn btn-danger" style="border-radius:8px;" onclick="deleteTrack(${t.id})">✕</button>`;
         }
+        // context indique de quelle liste vient ce morceau (page artiste/album)
+        // pour que le clic construise la file d'attente à partir de CETTE liste
+        // plutôt que de CURRENT_VIEW_DATA, qui peut être une autre liste (ex: des
+        // résultats de recherche) n'ayant plus rien à voir avec la page affichée.
+        const clickHandler = context === 'artist' ? `playTrackInArtist(${t.id})`
+                            : context === 'album'  ? `playTrackInAlbum(${t.id})`
+                            : `playTrackById(${t.id})`;
         return `
             <div class="track-index">${idx}</div>
             <img src="${safeCover}" loading="lazy" class="mini-cover" onerror="this.onerror=null;this.src='covers/default.png'">
-            <div style="cursor:pointer;overflow:hidden;" onclick="playTrackById(${t.id})">
+            <div style="cursor:pointer;overflow:hidden;" onclick="${clickHandler}">
                 <div style="font-weight:700;font-size:1.05em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px;">${safeTitle}</div>
                 <div style="font-size:.85em;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
                     ${artistHTML}${albumHTML} <span style="opacity:.6;font-size:.9em;">• ${displayGenre} • ▶ ${t.play_count||0}</span>
@@ -1902,7 +1958,7 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
         if (!tracks.length) {
             listContainer.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-muted);">${t('no_tracks_found')}</div>`;
         } else {
-            listContainer.innerHTML = tracks.map((tr, i) => `<div class="track-item" style="animation-delay:${Math.min(i, 14) * 18}ms">${trackRowInnerHTML(tr, i + 1)}</div>`).join('');
+            listContainer.innerHTML = tracks.map((tr, i) => `<div class="track-item" style="animation-delay:${Math.min(i, 14) * 18}ms">${trackRowInnerHTML(tr, i + 1, 'artist')}</div>`).join('');
         }
         fetchArtistBio(name);
         showSection('artist-page', doUrl);
@@ -1913,7 +1969,9 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
         closeFullPlayer();
         albumId = parseInt(albumId);
         currentAlbumId = albumId;
-        const tracks = ALL_MUSIC_DATA.filter(tr => parseInt(tr.album_id) === albumId);
+        // Ordre des pistes d'un album = ordre d'upload (la plus ancienne = piste 1),
+        // pas l'ordre de ALL_MUSIC_DATA (trié par popularité).
+        const tracks = ALL_MUSIC_DATA.filter(tr => parseInt(tr.album_id) === albumId).sort((a, b) => a.id - b.id);
         const albumName = tracks.length ? fixEntities(tracks[0].album) : '';
 
         document.getElementById('album-page-title').innerText = albumName;
@@ -1954,7 +2012,7 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
         if (!tracks.length) {
             listContainer.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-muted);">${t('no_tracks_found')}</div>`;
         } else {
-            listContainer.innerHTML = tracks.map((tr, i) => `<div class="track-item" style="animation-delay:${Math.min(i, 14) * 18}ms">${trackRowInnerHTML(tr, i + 1)}</div>`).join('');
+            listContainer.innerHTML = tracks.map((tr, i) => `<div class="track-item" style="animation-delay:${Math.min(i, 14) * 18}ms">${trackRowInnerHTML(tr, i + 1, 'album')}</div>`).join('');
         }
         showSection('album-page', doUrl);
     }
@@ -2133,7 +2191,7 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
             ${dragHandle}
             <div class="track-index">${idx}</div>
             <img src="${safeCover}" loading="lazy" class="mini-cover" onerror="this.onerror=null;this.src='covers/default.png'">
-            <div style="cursor:pointer;overflow:hidden;" onclick="playTrackById(${tr.id})">
+            <div style="cursor:pointer;overflow:hidden;" onclick="playTrackInPlaylist(${tr.id})">
                 <div style="font-weight:700;font-size:1.05em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px;">${safeTitle}</div>
                 <div style="font-size:.85em;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${artistHTML}${albumHTML}</div>
             </div>
@@ -2271,6 +2329,7 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
     function filterAndSortTracks() {
         const term  = document.getElementById('searchInput').value.toLowerCase();
         const sort  = document.getElementById('sortSelect').value;
+        renderSearchCategoryResults(term.trim());
         let filtered = ALL_MUSIC_DATA.filter(t => {
             if (hiddenGenres.includes(t.genre || 'Autre')) return false;
             return t.title.toLowerCase().includes(term) || t.artist.toLowerCase().includes(term);
@@ -2285,6 +2344,79 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
             return 0;
         });
         CURRENT_VIEW_DATA = filtered; renderedCount = 0; renderTracksChunk();
+    }
+
+    // Recherche globale : regroupe les résultats par catégorie, dans l'ordre
+    // Artistes → Albums → Chansons (cette dernière restant la liste filtrée
+    // rendue par renderTracksChunk juste en dessous).
+    function renderSearchCategoryResults(term) {
+        const artistsSection = document.getElementById('search-artists-section');
+        const albumsSection  = document.getElementById('search-albums-section');
+        const tracksTitle    = document.getElementById('tracks-section-title');
+
+        if (!term) {
+            artistsSection.style.display = 'none';
+            albumsSection.style.display = 'none';
+            tracksTitle.innerText = t('section_all_tracks');
+            return;
+        }
+
+        const artistsMap = new Map();
+        ALL_MUSIC_DATA.forEach(tr => {
+            splitArtistNames(fixEntities(tr.artist)).forEach(n => {
+                const key = n.toLowerCase();
+                if (!key.includes(term)) return;
+                if (!artistsMap.has(key)) artistsMap.set(key, { name: n, cover: tr.cover_url, latestId: tr.id });
+                const entry = artistsMap.get(key);
+                if (tr.id > entry.latestId) { entry.latestId = tr.id; entry.cover = tr.cover_url; }
+            });
+        });
+        const artists = [...artistsMap.values()].sort((a, b) => a.name.localeCompare(b.name));
+        const artistsGrid = document.getElementById('search-artists-grid');
+        if (artists.length) {
+            artistsGrid.innerHTML = artists.map(a => `<div class="carousel-card artist-card" onclick="showArtistPage('${jsAttrEscape(a.name)}')">
+                <div class="cc-cover-wrap"><img src="${escapeHTML(a.cover)}" loading="lazy" alt="" onerror="this.onerror=null;this.src='covers/default.png'"></div>
+                <div class="cc-title">${escapeHTML(a.name)}</div>
+            </div>`).join('');
+            artistsSection.style.display = '';
+        } else {
+            artistsGrid.innerHTML = '';
+            artistsSection.style.display = 'none';
+        }
+
+        const albumsMap = new Map();
+        ALL_MUSIC_DATA.forEach(tr => {
+            if (!tr.album_id) return;
+            const name = fixEntities(tr.album);
+            if (!name.toLowerCase().includes(term)) return;
+            const id = parseInt(tr.album_id);
+            if (!albumsMap.has(id)) albumsMap.set(id, { id, name, cover: tr.cover_url, latestId: tr.id, artists: new Map() });
+            const entry = albumsMap.get(id);
+            if (tr.id > entry.latestId) { entry.latestId = tr.id; entry.cover = tr.cover_url; }
+            splitArtistNames(fixEntities(tr.artist)).forEach(n => {
+                const key = n.toLowerCase();
+                if (!entry.artists.has(key)) entry.artists.set(key, n);
+            });
+        });
+        const albums = [...albumsMap.values()].sort((a, b) => a.name.localeCompare(b.name));
+        const albumsGrid = document.getElementById('search-albums-grid');
+        if (albums.length) {
+            albumsGrid.innerHTML = albums.map(a => {
+                const cover = 'api.php?action=album_cover&q=' + a.id + '&t=' + Date.now();
+                const artistHTML = [...a.artists.values()].map(n => escapeHTML(n)).join(', ');
+                return `<div class="carousel-card" onclick="showAlbumPage(${a.id})">
+                    <div class="cc-cover-wrap"><img src="${cover}" loading="lazy" alt="" onerror="this.onerror=null;this.src='covers/default.png'"></div>
+                    <div class="cc-title">${escapeHTML(a.name)}</div>
+                    <div class="cc-artist">${artistHTML}</div>
+                </div>`;
+            }).join('');
+            albumsSection.style.display = '';
+        } else {
+            albumsGrid.innerHTML = '';
+            albumsSection.style.display = 'none';
+        }
+
+        tracksTitle.innerText = t('songs_title');
     }
 
     function renderCarouselSection(id, title, tracks) {
@@ -2560,6 +2692,56 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
         loadTrack(autoPlay);
     }
 
+    // ── Construit la file d'attente à partir d'une liste explicite (page
+    // artiste/album/playlist) au lieu de CURRENT_VIEW_DATA, qui peut être une
+    // toute autre liste (ex: des résultats de recherche) quand on clique sur
+    // un morceau depuis une page qui n'est pas la bibliothèque principale.
+    // Complète avec le reste de la bibliothèque mélangé, comme playAlbum/
+    // playArtist, pour que la lecture continue après le dernier morceau.
+    function playTrackFromList(id, list, autoPlay = true) {
+        if (!list.length) return;
+        const usedIds = new Set(list.map(tr => tr.id));
+        let rest = ALL_MUSIC_DATA.filter(tr => !usedIds.has(tr.id));
+        if (hiddenGenres.length) rest = rest.filter(tr => !hiddenGenres.includes(tr.genre || 'Autre'));
+        const continuation = shuffleArray([...rest]);
+
+        currentPlaylistId = null;
+        originalQueue = [...list, ...continuation];
+        queue = isShuffle ? shuffleArray([...originalQueue]) : [...originalQueue];
+        currentIndex = queue.findIndex(t => t.id == id);
+        if (currentIndex === -1) currentIndex = 0;
+        loadTrack(autoPlay);
+    }
+
+    function playTrackInArtist(id) {
+        if (!currentArtistName) { playTrackById(id); return; }
+        const norm = currentArtistName.trim().toLowerCase();
+        const tracks = ALL_MUSIC_DATA.filter(tr => splitArtistNames(fixEntities(tr.artist)).some(n => n.toLowerCase() === norm));
+        playTrackFromList(id, tracks);
+    }
+
+    function playTrackInAlbum(id) {
+        if (currentAlbumId == null) { playTrackById(id); return; }
+        const tracks = ALL_MUSIC_DATA.filter(tr => parseInt(tr.album_id) === currentAlbumId).sort((a, b) => a.id - b.id);
+        playTrackFromList(id, tracks);
+    }
+
+    // ── Contrairement à playTrackFromList (artiste/album), une playlist ne se
+    // complète pas avec le reste de la bibliothèque : ses morceaux sont la
+    // file entière, comme le fait déjà playPlaylist() via le bouton "Écouter".
+    function playTrackInPlaylist(id) {
+        if (!currentViewedPlaylist) { playTrackById(id); return; }
+        const idList = String(currentViewedPlaylist.song_ids).split(',').map(Number).filter(Boolean);
+        const tracks = idList.map(tid => ALL_MUSIC_DATA.find(t => t.id === tid)).filter(Boolean);
+        if (!tracks.length) return;
+        currentPlaylistId = currentViewedPlaylist.id;
+        originalQueue = [...tracks];
+        queue = isShuffle ? shuffleArray([...originalQueue]) : [...originalQueue];
+        currentIndex = queue.findIndex(t => t.id == id);
+        if (currentIndex === -1) currentIndex = 0;
+        loadTrack(true);
+    }
+
     async function playPlaylist(ids, pId = null, forceShuffle = null) {
         const idList = String(ids).split(',').map(Number).filter(Boolean);
         let data = idList.map(id => ALL_MUSIC_DATA.find(t => t.id === id)).filter(Boolean);
@@ -2581,7 +2763,7 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
     // le dernier morceau de l'album terminé.
     function playAlbum(albumId, shuffleAlbum = false) {
         albumId = parseInt(albumId);
-        let albumTracks = ALL_MUSIC_DATA.filter(tr => parseInt(tr.album_id) === albumId);
+        let albumTracks = ALL_MUSIC_DATA.filter(tr => parseInt(tr.album_id) === albumId).sort((a, b) => a.id - b.id);
         if (!albumTracks.length) return;
         if (shuffleAlbum) albumTracks = shuffleArray([...albumTracks]);
 
@@ -3437,6 +3619,15 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
     async function fetchLyrics(track) {
         const panel = document.getElementById('lyrics-content');
         currentParsedLyrics = [];
+        // Repart du haut du panneau à chaque nouveau morceau : sans ça, si on
+        // avait défilé jusqu'en bas des paroles précédentes (longues) et que
+        // le morceau suivant a des paroles courtes/absentes, la position de
+        // scroll reste sur l'ancienne valeur. Certains moteurs la re-cadrent
+        // automatiquement au prochain repaint, d'autres non (notamment en
+        // combinaison avec le backdrop-filter du panneau) — d'où le fait de le
+        // forcer explicitement plutôt que de compter sur ce recadrage.
+        const sidebarContent = document.querySelector('.fp-sidebar-content');
+        if (sidebarContent) sidebarContent.scrollTop = 0;
         const myReq = ++lyricsRequestId;
         const cacheKey = 'lyrics_' + track.id;
         const cached = localStorage.getItem(cacheKey);
