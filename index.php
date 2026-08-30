@@ -685,7 +685,7 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
         .nav-icon-emoji { font-size:1.1em; line-height:1; width:20px; text-align:center; }
         nav span:hover { color:var(--text); background:rgba(255,255,255,.05); }
         nav span.active { color:var(--accent); background:rgba(var(--accent-rgb),.1); }
-        .header-actions { display:flex; flex-wrap:wrap; gap:10px; align-items:center; width:100%; margin-top:auto; padding-top:20px; border-top:1px solid rgba(255,255,255,.05); }
+        .header-actions { display:flex; flex-direction:column; gap:10px; align-items:stretch; width:100%; margin-top:auto; padding-top:20px; border-top:1px solid rgba(255,255,255,.05); }
         .btn-icon { flex-shrink:0; }
 
         /* Repli de la barre latérale gauche : icônes seules, libellés masqués */
@@ -712,7 +712,7 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
         .lang-switch a.active { background:var(--primary); color:#fff; }
         .lang-switch a:not(.active):hover { color:var(--text); background:rgba(255,255,255,.05); }
 
-        main { padding:30px; max-width:1100px; margin:auto; }
+        main { padding:30px; max-width:1600px; margin:auto; }
         .controls-container { display:flex; align-items:center; justify-content:space-between; gap:15px; margin-bottom:25px; }
         .section-title { border-left:5px solid var(--primary); padding-left:15px; margin-bottom:20px; font-size:1.5em; border-radius:2px; }
         .search-row { display:flex; align-items:center; gap:15px; width:100%; }
@@ -769,7 +769,7 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
         .carousel-track::-webkit-scrollbar-track { background:transparent; }
         .carousel-track::-webkit-scrollbar-thumb { background:var(--border-color); border-radius:var(--radius-full); }
         .carousel-track::-webkit-scrollbar-thumb:hover { background:var(--primary); }
-        .cards-wrap { display:flex; flex-wrap:wrap; gap:20px; }
+        .cards-wrap { display:grid; grid-template-columns:repeat(auto-fill,160px); gap:20px; }
         .carousel-card { flex:0 0 160px; width:160px; min-width:0; scroll-snap-align:start; cursor:pointer; }
         .carousel-card .cc-cover-wrap { position:relative; }
         .carousel-card img { width:160px; height:160px; border-radius:12px; object-fit:cover; box-shadow:0 8px 20px rgba(0,0,0,.3); transition:transform .2s; display:block; }
@@ -810,7 +810,7 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
         .genre-pill:hover { color:var(--text); border-color:var(--accent); }
         .genre-pill.active { background:var(--primary); border-color:var(--primary); color:#fff; }
 
-        .playlist-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); gap:16px; }
+        .playlist-grid { display:grid; grid-template-columns:repeat(auto-fill,170px); gap:16px; }
         .playlist-card { background:var(--bg-panel); border-radius:16px; padding:14px; border:1px solid rgba(var(--border-color-rgb),.5); transition:transform .3s,box-shadow .3s; cursor:pointer; }
         .playlist-card:hover { transform:translateY(-4px); box-shadow:0 12px 24px rgba(0,0,0,.35); border-color:var(--primary); }
         .playlist-card-title { margin:0 0 4px; font-size:.95em; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -856,10 +856,14 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
         .control-btn.active::after { content:''; position:absolute; bottom:0; left:50%; transform:translateX(-50%); width:4px; height:4px; background:var(--accent); border-radius:50%; }
         .loop-badge { display:none; position:absolute; top:-2px; right:-2px; width:14px; height:14px; border-radius:50%; background:var(--accent); color:var(--bg-dark); font-size:9px; font-weight:800; line-height:1; align-items:center; justify-content:center; font-family:system-ui,sans-serif; box-shadow:0 0 0 2px var(--bg-panel); }
         .loop-badge.show { display:flex; }
-        #masterPlay { background:white; border:none; width:38px; height:38px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:transform .2s,box-shadow .2s; box-shadow:0 0 20px rgba(255,255,255,.3); flex-shrink:0; }
-        #masterPlay:hover { transform:scale(1.1); box-shadow:0 0 30px rgba(255,255,255,.5); }
-        #masterPlay:active { transform:scale(.9); }
-        #masterPlay svg { fill:#0f0c1d; width:18px; height:18px; }
+        /* opacity:1 explicite : #fp-masterPlay porte aussi la classe .control-btn
+           (pour l'icône 18px partagée via .fp-bb-play), qui met opacity:.8 — sans
+           ce reset, le rond blanc du lecteur plein écran paraissait plus terne/
+           grisé que celui du mini-lecteur (qui n'a pas cette classe). */
+        #masterPlay, #fp-masterPlay { background:white; border:none; width:38px; height:38px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; opacity:1; transition:transform .2s,box-shadow .2s; box-shadow:0 0 20px rgba(255,255,255,.3); flex-shrink:0; }
+        #masterPlay:hover, #fp-masterPlay:hover { background:white; opacity:1; transform:scale(1.1); box-shadow:0 0 30px rgba(255,255,255,.5); }
+        #masterPlay:active, #fp-masterPlay:active { transform:scale(.9); }
+        #masterPlay svg, #fp-masterPlay svg { fill:#0f0c1d; width:18px; height:18px; }
         .volume-container { display:flex; align-items:center; gap:8px; width:100px; }
         input[type=range].vol-slider { -webkit-appearance:none; width:100%; height:4px; background:linear-gradient(90deg,var(--accent) 100%,rgba(255,255,255,.2) 100%); border-radius:5px; outline:none; cursor:pointer; }
         input[type=range].vol-slider::-webkit-slider-thumb { -webkit-appearance:none; width:12px; height:12px; background:#fff; border-radius:50%; cursor:pointer; transition:.2s; }
@@ -999,12 +1003,13 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
             .track-index { display:none; }
             .carousel-card { flex-basis:120px; width:120px; }
             .carousel-card img { width:120px; height:120px; }
+            .cards-wrap { grid-template-columns:repeat(auto-fill,120px); }
             .carousel-nav { display:none; }
             #player-bar { width:calc(100% - 20px); max-width:100%; height:auto; bottom:80px; left:50%; transform:translateX(-50%); border-radius:16px; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; row-gap:8px; padding:14px 15px 12px; box-sizing:border-box; }
             .player-info { width:100%; order:1; max-width:none; justify-content:flex-start; }
             .pb-transport { order:2; }
             .pb-right { display:contents; }
-            #masterPlay { width:45px; height:45px; }
+            #masterPlay, #fp-masterPlay { width:45px; height:45px; }
             .volume-container { display:none; }
             #loopBtn, #shuffleBtn, #fp-loopBtn, #fp-shuffleBtn { order:3; }
             .modal-content { width:90%; margin:8% auto; padding:25px; }
@@ -1071,9 +1076,9 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
         <?php endif; ?>
     </nav>
     <div class="header-actions">
-        <button class="btn btn-primary btn-labeled" onclick="openCreateModal()" title="+ Mix">
+        <button class="btn btn-primary btn-labeled" onclick="openCreateModal()" title="Mix">
             <svg class="btn-icon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-            <span class="btn-label">+ Mix</span>
+            <span class="btn-label">Mix</span>
         </button>
         <button class="btn btn-outline btn-labeled" onclick="openModal('uploadModal')" title="Upload">
             <svg class="btn-icon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>
@@ -1493,7 +1498,7 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
     <div class="progress-bg pb-seek" id="progress-area"><div class="progress-fill" id="progress-bar"></div></div>
     <div class="pb-transport">
         <button class="control-btn" onclick="prevTrack()"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button>
-        <button id="masterPlay" onclick="togglePlay()"><svg viewBox="0 0 24 24" style="margin-left:2px;"><path d="M8 5v14l11-7z"/></svg></button>
+        <button class="control-btn fp-bb-play" id="masterPlay" onclick="togglePlay()"><svg viewBox="0 0 24 24" style="margin-left:2px;"><path d="M8 5v14l11-7z"/></svg></button>
         <button class="control-btn" onclick="nextTrack()"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
         <div class="pb-time"><span id="curr-time">0:00</span><span class="pb-time-sep">/</span><span id="total-time">0:00</span></div>
     </div>
@@ -1618,6 +1623,8 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
             add_song_modal_title: 'Ajouter des titres',
             section_all_tracks: 'Toutes les pistes',
             songs_title: 'Chansons',
+            no_albums_found: 'Aucun album pour le moment',
+            no_artists_found: 'Aucun artiste pour le moment',
         },
         en: {
             err_api_unreachable: 'Unable to reach api.php.',
@@ -1666,6 +1673,8 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
             add_song_modal_title: 'Add songs',
             section_all_tracks: 'All tracks',
             songs_title: 'Songs',
+            no_albums_found: 'No albums yet',
+            no_artists_found: 'No artists yet',
         },
     };
     function t(key) { return (I18N_STRINGS[LANG] && I18N_STRINGS[LANG][key]) || I18N_STRINGS.fr[key] || key; }
@@ -1723,6 +1732,19 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
 
     const playIcon  = '<svg viewBox="0 0 24 24" style="margin-left:2px;"><path d="M8 5v14l11-7z"/></svg>';
     const pauseIcon = '<svg viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>';
+
+    // Source unique de vérité pour l'icône lecture/pause : se déclenche sur les
+    // évènements natifs 'play'/'pause' de <audio> plutôt que d'être posée à la
+    // main à chaque endroit qui appelle play()/pause(). Ça couvre aussi les cas
+    // où l'OS ou une touche média du clavier met en pause en dehors de nos
+    // propres boutons — l'icône reste sinon désynchronisée de l'état réel.
+    function updatePlayPauseIcons() {
+        const icon = audio.paused ? playIcon : pauseIcon;
+        masterPlay.innerHTML = icon;
+        document.getElementById('fp-masterPlay').innerHTML = icon;
+    }
+    audio.addEventListener('play', updatePlayPauseIcons);
+    audio.addEventListener('pause', updatePlayPauseIcons);
 
     const desktopVol = document.getElementById('desktop-vol');
     const mobileVol  = document.getElementById('mobile-vol');
@@ -2853,11 +2875,8 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
             initAudioGraph();
             if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
             audio.play().catch(e => console.error(e));
-            masterPlay.innerHTML = pauseIcon;
-            document.getElementById('fp-masterPlay').innerHTML = pauseIcon;
         } else {
-            masterPlay.innerHTML = playIcon;
-            document.getElementById('fp-masterPlay').innerHTML = playIcon;
+            audio.pause();
         }
         updateQueueUI();
     }
@@ -2873,8 +2892,7 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
         if (currentIndex < queue.length - 1) { currentIndex++; loadTrack(true); }
         else if (loopMode === 1) { currentIndex = 0; loadTrack(true); }
         else {
-            audio.pause(); audio.currentTime = 0; masterPlay.innerHTML = playIcon;
-            document.getElementById('fp-masterPlay').innerHTML = playIcon;
+            audio.pause(); audio.currentTime = 0;
         }
     }
     function prevTrack() { if (currentIndex > 0) { currentIndex--; loadTrack(true); } }
@@ -2883,9 +2901,21 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
         if (!audio.src) return;
         initAudioGraph();
         if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
-        if (audio.paused) { audio.play(); masterPlay.innerHTML = pauseIcon; document.getElementById('fp-masterPlay').innerHTML = pauseIcon; }
-        else { audio.pause(); masterPlay.innerHTML = playIcon; document.getElementById('fp-masterPlay').innerHTML = playIcon; }
+        if (audio.paused) audio.play(); else audio.pause();
     }
+
+    // Raccourcis clavier lecture/pause façon YouTube/Spotify (Espace ou K),
+    // désactivés pendant la saisie de texte pour ne pas gêner la recherche,
+    // les formulaires de modale, etc.
+    document.addEventListener('keydown', (e) => {
+        if (e.ctrlKey || e.metaKey || e.altKey) return;
+        if (e.key !== ' ' && e.key.toLowerCase() !== 'k') return;
+        const ae = document.activeElement;
+        const tag = ae && ae.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (ae && ae.isContentEditable)) return;
+        e.preventDefault();
+        togglePlay();
+    });
 
     function toggleShuffle() {
         isShuffle = !isShuffle;
