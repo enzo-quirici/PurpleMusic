@@ -281,12 +281,15 @@ $I18N = [
     'login_password_ph'       => ['fr' => 'Mot de passe',                   'en' => 'Password'],
     'login_submit'            => ['fr' => 'Connexion',                      'en' => 'Log in'],
     'register_submit'         => ['fr' => 'Créer un compte',                'en' => 'Create account'],
+    'rgpd_link_label'         => ['fr' => 'Politique de confidentialité (RGPD)', 'en' => 'Privacy Policy (GDPR)'],
     'nav_library'             => ['fr' => 'Bibliothèque',                   'en' => 'Library'],
     'nav_playlists'           => ['fr' => 'Playlists',                      'en' => 'Playlists'],
     'nav_albums'              => ['fr' => 'Albums',                         'en' => 'Albums'],
     'nav_artists'             => ['fr' => 'Artistes',                       'en' => 'Artists'],
     'nav_admin'               => ['fr' => 'Panel Admin',                    'en' => 'Admin Panel'],
     'header_settings'         => ['fr' => 'Paramètres',                     'en' => 'Settings'],
+    'header_history'          => ['fr' => 'Historique',                     'en' => 'History'],
+    'history_title'           => ['fr' => "Historique d'écoute",            'en' => 'Listening History'],
     'header_logout'           => ['fr' => 'Sortir',                         'en' => 'Log out'],
     'search_placeholder'      => ['fr' => 'Rechercher titre, artiste...',   'en' => 'Search title, artist...'],
     'btn_clear_search'        => ['fr' => 'Effacer la recherche',           'en' => 'Clear search'],
@@ -1047,6 +1050,8 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
         <button type="submit" name="login" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:10px;padding:15px;"><?php echo htmlspecialchars(t('login_submit')); ?></button>
         <button type="submit" name="register" class="btn btn-outline" style="width:100%;justify-content:center;margin-top:15px;padding:15px;"><?php echo htmlspecialchars(t('register_submit')); ?></button>
     </form>
+    <?php $rgpd_file = $LANG === 'en' ? 'PRIVACY.md' : 'RGPD.md'; ?>
+    <a href="https://github.com/qcom-toolbox/Amethyst-Music/blob/main/<?php echo $rgpd_file; ?>" target="_blank" rel="noopener noreferrer" style="display:inline-block;margin-top:20px;font-size:.8em;color:var(--text-muted);text-decoration:underline;"><?php echo htmlspecialchars(t('rgpd_link_label')); ?></a>
 </div>
 <?php else: ?>
 
@@ -1083,6 +1088,10 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
         <button class="btn btn-outline btn-labeled" onclick="openModal('uploadModal')" title="Upload">
             <svg class="btn-icon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>
             <span class="btn-label">Upload</span>
+        </button>
+        <button class="btn btn-outline btn-labeled" onclick="showHistoryPage()" title="<?php echo htmlspecialchars(t('header_history')); ?>">
+            <svg class="btn-icon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
+            <span class="btn-label"><?php echo htmlspecialchars(t('header_history')); ?></span>
         </button>
         <button class="btn btn-outline btn-labeled" onclick="openModal('settingsModal')" title="<?php echo htmlspecialchars(t('header_settings')); ?>">
             <svg class="btn-icon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M19.4 13c0-.3.1-.6.1-1s0-.7-.1-1l2.1-1.7c.2-.2.2-.4.1-.6l-2-3.5c-.1-.2-.3-.3-.6-.2l-2.5 1c-.5-.4-1.1-.7-1.7-1l-.4-2.7c0-.2-.2-.4-.5-.4h-4c-.3 0-.5.2-.5.4l-.4 2.7c-.6.2-1.2.6-1.7 1l-2.5-1c-.2-.1-.5 0-.6.2l-2 3.5c-.1.2-.1.5.1.6L4.6 11c-.1.3-.1.6-.1 1s0 .7.1 1l-2.1 1.7c-.2.2-.2.4-.1.6l2 3.5c.1.2.3.3.6.2l2.5-1c.5.4 1.1.7 1.7 1l.4 2.7c0 .2.2.4.5.4h4c.3 0 .5-.2.5-.4l.4-2.7c.6-.2 1.2-.6 1.7-1l2.5 1c.2.1.5 0 .6-.2l2-3.5c.1-.2.1-.5-.1-.6L19.4 13zM12 15.5c-1.9 0-3.5-1.6-3.5-3.5s1.6-3.5 3.5-3.5 3.5 1.6 3.5 3.5-1.6 3.5-3.5 3.5z"/></svg>
@@ -1198,7 +1207,7 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
                 </div>
                 <select id="sortSelect" class="filter-select-overlay" onchange="filterAndSortTracks()">
                     <option value="popular"><?php echo htmlspecialchars(t('sort_popular')); ?></option>
-                    <option value="date_desc"><?php echo htmlspecialchars(t('sort_date_desc')); ?></option>
+                    <option value="date_desc" selected><?php echo htmlspecialchars(t('sort_date_desc')); ?></option>
                     <option value="date_asc"><?php echo htmlspecialchars(t('sort_date_asc')); ?></option>
                     <option value="alpha_asc"><?php echo htmlspecialchars(t('sort_alpha_asc')); ?></option>
                     <option value="alpha_desc"><?php echo htmlspecialchars(t('sort_alpha_desc')); ?></option>
@@ -1344,6 +1353,11 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
         </div>
     </div>
     <div class="track-list" id="album-track-list"></div>
+</main>
+
+<main id="history" style="display:none;">
+    <h2 class="section-title" style="margin-bottom:25px;"><?php echo htmlspecialchars(t('history_title')); ?></h2>
+    <div class="track-list" id="history-track-list"></div>
 </main>
 
 <div id="mobile-bottom-nav">
@@ -1625,6 +1639,7 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
             songs_title: 'Chansons',
             no_albums_found: 'Aucun album pour le moment',
             no_artists_found: 'Aucun artiste pour le moment',
+            history_empty: "Vous n'avez encore rien écouté.",
         },
         en: {
             err_api_unreachable: 'Unable to reach api.php.',
@@ -1675,6 +1690,7 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
             songs_title: 'Songs',
             no_albums_found: 'No albums yet',
             no_artists_found: 'No artists yet',
+            history_empty: "You haven't listened to anything yet.",
         },
     };
     function t(key) { return (I18N_STRINGS[LANG] && I18N_STRINGS[LANG][key]) || I18N_STRINGS.fr[key] || key; }
@@ -1726,6 +1742,7 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
     let CURRENT_VIEW_DATA = []; let renderedCount = 0; const RENDER_CHUNK = 30;
     let originalQueue = []; let queue = []; let currentIndex = 0; let loopMode = 0; let isShuffle = false;
     let currentPlaylistId = null; let currentSection = 'accueil'; let currentArtistName = null; let currentAlbumId = null; let currentViewedPlaylist = null;
+    let currentHistoryTracks = [];
     let hiddenGenres = JSON.parse(localStorage.getItem('hiddenGenres') || '[]');
     let adaptiveThemeEnabled = (localStorage.getItem('theme_base') === 'adaptive');
     const adaptiveColorCache = new Map();
@@ -1919,8 +1936,9 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
         // pour que le clic construise la file d'attente à partir de CETTE liste
         // plutôt que de CURRENT_VIEW_DATA, qui peut être une autre liste (ex: des
         // résultats de recherche) n'ayant plus rien à voir avec la page affichée.
-        const clickHandler = context === 'artist' ? `playTrackInArtist(${t.id})`
-                            : context === 'album'  ? `playTrackInAlbum(${t.id})`
+        const clickHandler = context === 'artist'  ? `playTrackInArtist(${t.id})`
+                            : context === 'album'   ? `playTrackInAlbum(${t.id})`
+                            : context === 'history' ? `playTrackInHistory(${t.id})`
                             : `playTrackById(${t.id})`;
         return `
             <div class="track-index">${idx}</div>
@@ -2054,6 +2072,42 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
         playlistEditMode = false;
         renderPlaylistPageContent();
         showSection('playlist-page', doUrl);
+    }
+
+    // ── Page historique : morceaux réellement écoutés par l'utilisateur
+    // (table listen_history côté serveur), un par piste, du plus récent au
+    // plus ancien — pas un tirage random ni une liste dérivée d'un tri.
+    async function showHistoryPage(doUrl = true) {
+        closeFullPlayer();
+        showSection('history', doUrl);
+        const listContainer = document.getElementById('history-track-list');
+        listContainer.innerHTML = '';
+        const res = await apiCall('history', { limit: 100 });
+
+        // La page a pu être quittée pendant l'attente de la réponse.
+        if (currentSection !== 'history') return;
+
+        if (!Array.isArray(res)) {
+            console.error('action=history failed:', res);
+            currentHistoryTracks = [];
+            listContainer.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-muted);">${escapeHTML(res?.message || t('err_api_unreachable'))}</div>`;
+            return;
+        }
+        const tracks = res;
+        currentHistoryTracks = tracks;
+
+        if (!tracks.length) {
+            listContainer.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-muted);">${t('history_empty')}</div>`;
+            return;
+        }
+        const fragment = document.createDocumentFragment();
+        tracks.forEach((tr, index) => {
+            const div = document.createElement('div'); div.className = 'track-item';
+            div.style.animationDelay = (Math.min(index, 14) * 18) + 'ms';
+            div.innerHTML = trackRowInnerHTML(tr, index + 1, 'history');
+            fragment.appendChild(div);
+        });
+        listContainer.appendChild(fragment);
     }
 
     // ── Reconstruit tout le contenu de la page playlist (hero, mosaïque,
@@ -2502,7 +2556,23 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
         renderHomeCarousels();
     }
 
-    function renderHomeCarousels() {
+    // Cache les recommandations calculées côté serveur (affinité de genre/
+    // artiste/album déduite des playlists de l'utilisateur + popularité) pour
+    // éviter un appel API à chaque changement de filtre de genre sur l'accueil.
+    let recommendedCache = null;
+
+    async function fetchRecommended() {
+        if (recommendedCache) return recommendedCache;
+        try {
+            const res = await apiCall('recommend', { limit: 30 });
+            recommendedCache = Array.isArray(res) ? res : [];
+        } catch (e) {
+            recommendedCache = [];
+        }
+        return recommendedCache;
+    }
+
+    async function renderHomeCarousels() {
         const container = document.getElementById('home-carousels');
         if (!container) return;
         let visible = ALL_MUSIC_DATA.filter(t => !hiddenGenres.includes(t.genre || 'Autre'));
@@ -2518,8 +2588,15 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
             .slice(0, 30);
         const hiddenGems = shuffleArray([...leastPopularPool]).slice(0, 15);
 
-        // Recommandé : échantillon aléatoire de toute la bibliothèque.
-        const recommended = shuffleArray([...visible]).slice(0, 15);
+        // Recommandé : algorithme serveur (action=recommend), pas un tirage random.
+        const allRecommended = await fetchRecommended();
+        let recommended = allRecommended.filter(t => !hiddenGenres.includes(t.genre || 'Autre'));
+        if (selectedHomeGenre !== null) recommended = recommended.filter(t => (t.genre || 'Autre') === selectedHomeGenre);
+        recommended = recommended.slice(0, 15);
+        if (!recommended.length) recommended = shuffleArray([...visible]).slice(0, 15);
+
+        // Le conteneur a pu être retiré du DOM (changement de page) pendant l'attente.
+        if (!document.getElementById('home-carousels')) return;
 
         container.innerHTML =
             renderCarouselSection('carousel-recommended', t('recommended_for_you'), recommended) +
@@ -2620,6 +2697,7 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
         if (p.get('page') === 'artist-page' && p.get('artist')) showArtistPage(p.get('artist'), false);
         else if (p.get('page') === 'album-page' && p.get('album')) showAlbumPage(parseInt(p.get('album')), false);
         else if (p.get('page') === 'playlist-page' && p.get('playlist')) showPlaylistPage(parseInt(p.get('playlist')), false);
+        else if (p.get('page') === 'history') showHistoryPage(false);
         else if (p.get('page')) showSection(p.get('page'), false);
         if (p.get('list')) currentPlaylistId = p.get('list');
         if (p.get('v'))    playTrackById(p.get('v'), false);
@@ -2748,6 +2826,14 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
         playTrackFromList(id, tracks);
     }
 
+    // ── Page historique : la liste n'est pas dérivable de ALL_MUSIC_DATA
+    // (ordre chronologique propre à l'utilisateur), donc on rejoue depuis la
+    // liste mise en cache par showHistoryPage().
+    function playTrackInHistory(id) {
+        if (!currentHistoryTracks.length) { playTrackById(id); return; }
+        playTrackFromList(id, currentHistoryTracks);
+    }
+
     // ── Contrairement à playTrackFromList (artiste/album), une playlist ne se
     // complète pas avec le reste de la bibliothèque : ses morceaux sont la
     // file entière, comme le fait déjà playPlaylist() via le bouton "Écouter".
@@ -2783,11 +2869,16 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
     // complétée avec le reste de la bibliothèque (mélangé) à la suite de
     // l'album, pour que la musique continue au lieu de s'arrêter une fois
     // le dernier morceau de l'album terminé.
-    function playAlbum(albumId, shuffleAlbum = false) {
+    function playAlbum(albumId, forceShuffle = null) {
         albumId = parseInt(albumId);
         let albumTracks = ALL_MUSIC_DATA.filter(tr => parseInt(tr.album_id) === albumId).sort((a, b) => a.id - b.id);
         if (!albumTracks.length) return;
-        if (shuffleAlbum) albumTracks = shuffleArray([...albumTracks]);
+        if (forceShuffle !== null) {
+            isShuffle = forceShuffle;
+            document.getElementById('shuffleBtn').classList.toggle('active', isShuffle);
+            document.getElementById('fp-shuffleBtn').classList.toggle('active', isShuffle);
+        }
+        if (isShuffle) albumTracks = shuffleArray([...albumTracks]);
 
         const usedIds = new Set(albumTracks.map(tr => tr.id));
         let rest = ALL_MUSIC_DATA.filter(tr => !usedIds.has(tr.id));
@@ -2799,22 +2890,23 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
         queue = [...originalQueue];
         currentIndex = 0;
 
-        isShuffle = shuffleAlbum;
-        document.getElementById('shuffleBtn').classList.toggle('active', isShuffle);
-        document.getElementById('fp-shuffleBtn').classList.toggle('active', isShuffle);
-
         loadTrack(true);
     }
 
     // ── Lecture des morceaux d'un artiste (en ordre ou mélangé) : même
     // logique que playAlbum, la file continue avec le reste de la
     // bibliothèque (mélangé) une fois les morceaux de l'artiste terminés.
-    function playArtist(artistName, shuffleArtist = false) {
+    function playArtist(artistName, forceShuffle = null) {
         if (!artistName) return;
         const norm = artistName.trim().toLowerCase();
         let artistTracks = ALL_MUSIC_DATA.filter(tr => splitArtistNames(fixEntities(tr.artist)).some(n => n.toLowerCase() === norm));
         if (!artistTracks.length) return;
-        if (shuffleArtist) artistTracks = shuffleArray([...artistTracks]);
+        if (forceShuffle !== null) {
+            isShuffle = forceShuffle;
+            document.getElementById('shuffleBtn').classList.toggle('active', isShuffle);
+            document.getElementById('fp-shuffleBtn').classList.toggle('active', isShuffle);
+        }
+        if (isShuffle) artistTracks = shuffleArray([...artistTracks]);
 
         const usedIds = new Set(artistTracks.map(tr => tr.id));
         let rest = ALL_MUSIC_DATA.filter(tr => !usedIds.has(tr.id));
@@ -2825,10 +2917,6 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
         originalQueue = [...artistTracks, ...continuation];
         queue = [...originalQueue];
         currentIndex = 0;
-
-        isShuffle = shuffleArtist;
-        document.getElementById('shuffleBtn').classList.toggle('active', isShuffle);
-        document.getElementById('fp-shuffleBtn').classList.toggle('active', isShuffle);
 
         loadTrack(true);
     }
@@ -2975,7 +3063,7 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
 
     function showSection(id, doUrl = true) {
         if (document.getElementById('full-player').classList.contains('active')) closeFullPlayer();
-        ['accueil', 'playlists', 'albums', 'artists', 'artist-page', 'album-page', 'playlist-page'].forEach(sectionId => {
+        ['accueil', 'playlists', 'albums', 'artists', 'artist-page', 'album-page', 'playlist-page', 'history'].forEach(sectionId => {
             const el = document.getElementById(sectionId);
             if (sectionId === id) {
                 el.style.display = 'block';

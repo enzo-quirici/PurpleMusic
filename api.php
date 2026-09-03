@@ -64,9 +64,25 @@ try {
         attempt_time INT
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
+    // --- Historique d'écoute par utilisateur, base du moteur de recommandation ---
+    $db->exec("CREATE TABLE IF NOT EXISTS listen_history (
+        id        INT AUTO_INCREMENT PRIMARY KEY,
+        user_id   INT NOT NULL,
+        track_id  INT NOT NULL,
+        played_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        KEY idx_lh_user (user_id),
+        KEY idx_lh_track (track_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
     // --- OPTIMISATION : Indexation SQL ---
-    $db->exec("CREATE INDEX IF NOT EXISTS idx_play_count ON tracks(play_count)");
-    $db->exec("CREATE INDEX IF NOT EXISTS idx_uploader   ON tracks(uploader_id)");
+    // "CREATE INDEX IF NOT EXISTS" n'est supporté que par MariaDB (10.5.2+) ;
+    // MySQL (y compris 8.0/9.x) le rejette avec une erreur de syntaxe pure,
+    // ce qui faisait planter TOUTE requête à api.php (donc l'increment_play
+    // qui alimente l'historique d'écoute) sur une base MySQL. On avale
+    // l'erreur : un index manquant est un problème de perf, pas de
+    // correction, et l'index a de toute façon déjà été créé par setup.sql.
+    try { $db->exec("CREATE INDEX IF NOT EXISTS idx_play_count ON tracks(play_count)"); } catch (Exception $e) {}
+    try { $db->exec("CREATE INDEX IF NOT EXISTS idx_uploader   ON tracks(uploader_id)"); } catch (Exception $e) {}
 
     // --- MIGRATIONS AUTOMATIQUES (tracks) ---
     $cols = $db->query("SHOW COLUMNS FROM tracks")->fetchAll(PDO::FETCH_ASSOC);
@@ -77,7 +93,7 @@ try {
     if (!in_array('album_id',   $colNames)) $db->exec("ALTER TABLE tracks ADD COLUMN album_id   INT         DEFAULT NULL");
 
     // idx_album ne peut être créé qu'une fois la colonne album_id garantie présente ci-dessus
-    $db->exec("CREATE INDEX IF NOT EXISTS idx_album ON tracks(album_id)");
+    try { $db->exec("CREATE INDEX IF NOT EXISTS idx_album ON tracks(album_id)"); } catch (Exception $e) {}
 
     // --- MIGRATIONS AUTOMATIQUES (users) ---
     $colsUsers = $db->query("SHOW COLUMNS FROM users")->fetchAll(PDO::FETCH_ASSOC);
@@ -454,7 +470,128 @@ switch($action) {
         }
         echo json_encode($tracks);
         break;
-        
+
+    case 'recommend':
+        // --- Recommandation par affinité de goût --------------------------
+        // Le profil de goût de l'utilisateur combine deux signaux :
+        //  1. Son historique d'écoute réel (listen_history), pondéré par
+        //     récence : les morceaux écoutés récemment pèsent plus que les
+        //     anciens, et chaque écoute compte (pas seulement les distincts),
+        //     donc les artistes/genres qu'il écoute souvent dominent.
+        //  2. Les morceaux qu'il a explicitement rangés dans ses playlists,
+        //     signal plus fort qu'une simple écoute (curation volontaire).
+        // Chaque morceau candidat est ensuite noté par proximité de genre/
+        // artiste/album avec ce profil, plus un peu de popularité globale et
+        // une part aléatoire (diversité, liste jamais figée). Sans profil
+        // (utilisateur anonyme, ou nouveau sans historique/playlist), le
+        // score retombe sur popularité + aléatoire, bien plus pertinent
+        // qu'un tirage uniforme sur toute la bibliothèque.
+        $auth = authenticate_api_user($db);
+
+        $limit = filter_var($_POST['limit'] ?? 15, FILTER_VALIDATE_INT);
+        if ($limit === false || $limit <= 0) $limit = 15;
+        $limit = min($limit, 50);
+
+        $stmt = $db->query("SELECT tracks.id, tracks.title, tracks.artist, tracks.cover, tracks.genre, tracks.album_id, albums.name AS album, tracks.play_count, tracks.duration, tracks.uploader_id FROM tracks LEFT JOIN albums ON tracks.album_id = albums.id");
+        $tracks = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        if (!$tracks) { echo json_encode([]); break; }
+
+        $byId = [];
+        foreach ($tracks as $t) $byId[(int)$t['id']] = $t;
+
+        $genreAffinity = []; $artistAffinity = []; $albumAffinity = []; $ownedIds = [];
+
+        if ($auth) {
+            // Historique d'écoute : signal comportemental pondéré par récence
+            // (rang 0 = écoute la plus récente = poids maximal).
+            $hstmt = $db->prepare("SELECT track_id FROM listen_history WHERE user_id = ? ORDER BY played_at DESC LIMIT 200");
+            $hstmt->execute([$auth['id']]);
+            $history = $hstmt->fetchAll(PDO::FETCH_COLUMN);
+            $histCount = count($history);
+            foreach ($history as $rank => $tid) {
+                $tid = (int)$tid;
+                if (!isset($byId[$tid])) continue;
+                $t = $byId[$tid];
+                $weight = max(0.2, 1 - ($rank / max(1, $histCount)));
+                if (!empty($t['genre']))    $genreAffinity[$t['genre']]     = ($genreAffinity[$t['genre']] ?? 0) + $weight;
+                if (!empty($t['artist']))   $artistAffinity[$t['artist']]   = ($artistAffinity[$t['artist']] ?? 0) + $weight;
+                if (!empty($t['album_id'])) $albumAffinity[$t['album_id']] = ($albumAffinity[$t['album_id']] ?? 0) + $weight;
+            }
+
+            // Playlists : curation volontaire, signal plus fort qu'une simple écoute.
+            $pstmt = $db->prepare("SELECT song_ids FROM playlists WHERE creator_id = ?");
+            $pstmt->execute([$auth['id']]);
+            foreach ($pstmt->fetchAll(PDO::FETCH_COLUMN) as $songIds) {
+                foreach (array_filter(explode(',', (string)$songIds)) as $rawId) {
+                    $tid = (int)$rawId;
+                    if ($tid <= 0 || !isset($byId[$tid])) continue;
+                    $ownedIds[$tid] = true;
+                    $t = $byId[$tid];
+                    if (!empty($t['genre']))    $genreAffinity[$t['genre']]     = ($genreAffinity[$t['genre']] ?? 0) + 4;
+                    if (!empty($t['artist']))   $artistAffinity[$t['artist']]   = ($artistAffinity[$t['artist']] ?? 0) + 4;
+                    if (!empty($t['album_id'])) $albumAffinity[$t['album_id']] = ($albumAffinity[$t['album_id']] ?? 0) + 4;
+                }
+            }
+        }
+
+        $hasAffinity = $genreAffinity || $artistAffinity || $albumAffinity;
+
+        $scored = [];
+        foreach ($tracks as $t) {
+            if (isset($ownedIds[(int)$t['id']])) continue;
+            $score  = ($genreAffinity[$t['genre']] ?? 0) * 5;
+            $score += ($artistAffinity[$t['artist']] ?? 0) * 8;
+            $score += ($albumAffinity[$t['album_id']] ?? 0) * 6;
+            $score += log(1 + (int)$t['play_count']) * 1.5;
+            $score += (mt_rand() / mt_getrandmax()) * ($hasAffinity ? 3 : 6);
+            $t['_score'] = $score;
+            $scored[] = $t;
+        }
+
+        usort($scored, fn($a, $b) => $b['_score'] <=> $a['_score']);
+        $result = array_slice($scored, 0, $limit);
+        foreach ($result as &$t) {
+            unset($t['_score']);
+            $t['cover_url'] = $baseUrl . "api.php?action=cover&q=" . $t['id'] . "&t=" . time();
+            $t['stream_url'] = $baseUrl . "api.php?action=stream&q=" . $t['id'];
+        }
+        echo json_encode(array_values($result));
+        break;
+
+    case 'history':
+        // --- Historique d'écoute réel de l'utilisateur --------------------
+        // Une ligne par piste (pas par écoute) : les rejouer plusieurs fois
+        // ne duplique pas l'entrée, seule la date de dernière écoute est
+        // utilisée pour l'ordre (le plus récent d'abord), comme un "récemment
+        // écouté" classique plutôt qu'un journal brut de chaque lecture.
+        $auth = authenticate_api_user($db);
+        if (!$auth) { echo json_encode(["status" => "error", "message" => "Accès refusé."]); exit; }
+
+        $limit = filter_var($_POST['limit'] ?? 100, FILTER_VALIDATE_INT);
+        if ($limit === false || $limit <= 0) $limit = 100;
+        $limit = min($limit, 300);
+
+        $stmt = $db->prepare("
+            SELECT tracks.id, tracks.title, tracks.artist, tracks.cover, tracks.genre, tracks.album_id, albums.name AS album, tracks.play_count, tracks.duration, tracks.uploader_id, MAX(lh.played_at) AS last_played
+            FROM listen_history lh
+            JOIN tracks ON tracks.id = lh.track_id
+            LEFT JOIN albums ON tracks.album_id = albums.id
+            WHERE lh.user_id = ?
+            GROUP BY tracks.id
+            ORDER BY last_played DESC
+            LIMIT " . (int)$limit
+        );
+        $stmt->execute([$auth['id']]);
+        $tracks = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($tracks as &$t) {
+            unset($t['last_played']);
+            $t['cover_url'] = $baseUrl . "api.php?action=cover&q=" . $t['id'] . "&t=" . time();
+            $t['stream_url'] = $baseUrl . "api.php?action=stream&q=" . $t['id'];
+        }
+        echo json_encode($tracks);
+        break;
+
     case 'increment_play':
         // --- SÉCURITÉ : Authentification requise pour incrémenter ---
         $auth = authenticate_api_user($db);
@@ -465,6 +602,7 @@ switch($action) {
 
         $stmt = $db->prepare("UPDATE tracks SET play_count = play_count + 1 WHERE id = ?");
         $stmt->execute([$track_id]);
+        $db->prepare("INSERT INTO listen_history (user_id, track_id) VALUES (?, ?)")->execute([$auth['id'], $track_id]);
         echo json_encode(["status" => "success"]);
         break;
 
