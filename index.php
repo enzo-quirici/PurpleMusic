@@ -716,6 +716,11 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
         .lang-switch a:not(.active):hover { color:var(--text); background:rgba(255,255,255,.05); }
 
         main { padding:30px; max-width:1600px; margin:auto; }
+        /* Colonne de lecture pour les pages Réglages/Admin : un formulaire de
+           réglages en pleine largeur (1600px) serait illisible (champs texte
+           et color-pickers étirés sur toute la largeur) ; on garde le confort
+           de lecture d'une carte de modale sans revenir à une pop-up. */
+        .settings-page-wrap { max-width:600px; }
         .controls-container { display:flex; align-items:center; justify-content:space-between; gap:15px; margin-bottom:25px; }
         .section-title { border-left:5px solid var(--primary); padding-left:15px; margin-bottom:20px; font-size:1.5em; border-radius:2px; }
         .search-row { display:flex; align-items:center; gap:15px; width:100%; }
@@ -1074,7 +1079,7 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
             <span class="nav-label"><?php echo htmlspecialchars(t('nav_albums')); ?></span>
         </span>
         <?php if ($is_admin): ?>
-            <span class="admin-nav-btn" onclick="openModal('adminPanelModal')" title="<?php echo htmlspecialchars(t('nav_admin')); ?>">
+            <span id="nav-admin-page" class="admin-nav-btn" onclick="showSection('admin-page')" title="<?php echo htmlspecialchars(t('nav_admin')); ?>">
                 <svg class="nav-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M19.4 13c0-.3.1-.6.1-1s0-.7-.1-1l2.1-1.7c.2-.2.2-.4.1-.6l-2-3.5c-.1-.2-.3-.3-.6-.2l-2.5 1c-.5-.4-1.1-.7-1.7-1l-.4-2.7c0-.2-.2-.4-.5-.4h-4c-.3 0-.5.2-.5.4l-.4 2.7c-.6.2-1.2.6-1.7 1l-2.5-1c-.2-.1-.5 0-.6.2l-2 3.5c-.1.2-.1.5.1.6L4.6 11c-.1.3-.1.6-.1 1s0 .7.1 1l-2.1 1.7c-.2.2-.2.4-.1.6l2 3.5c.1.2.3.3.6.2l2.5-1c.5.4 1.1.7 1.7 1l.4 2.7c0 .2.2.4.5.4h4c.3 0 .5-.2.5-.4l.4-2.7c.6-.2 1.2-.6 1.7-1l2.5 1c.2.1.5 0 .6-.2l2-3.5c.1-.2.1-.5-.1-.6L19.4 13zM12 15.5c-1.9 0-3.5-1.6-3.5-3.5s1.6-3.5 3.5-3.5 3.5 1.6 3.5 3.5-1.6 3.5-3.5 3.5z"/></svg>
                 <span class="nav-label"><?php echo htmlspecialchars(t('nav_admin')); ?></span>
             </span>
@@ -1093,7 +1098,7 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
             <svg class="btn-icon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
             <span class="btn-label"><?php echo htmlspecialchars(t('header_history')); ?></span>
         </button>
-        <button class="btn btn-outline btn-labeled" onclick="openModal('settingsModal')" title="<?php echo htmlspecialchars(t('header_settings')); ?>">
+        <button class="btn btn-outline btn-labeled" onclick="showSection('settings-page')" title="<?php echo htmlspecialchars(t('header_settings')); ?>">
             <svg class="btn-icon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M19.4 13c0-.3.1-.6.1-1s0-.7-.1-1l2.1-1.7c.2-.2.2-.4.1-.6l-2-3.5c-.1-.2-.3-.3-.6-.2l-2.5 1c-.5-.4-1.1-.7-1.7-1l-.4-2.7c0-.2-.2-.4-.5-.4h-4c-.3 0-.5.2-.5.4l-.4 2.7c-.6.2-1.2.6-1.7 1l-2.5-1c-.2-.1-.5 0-.6.2l-2 3.5c-.1.2-.1.5.1.6L4.6 11c-.1.3-.1.6-.1 1s0 .7.1 1l-2.1 1.7c-.2.2-.2.4-.1.6l2 3.5c.1.2.3.3.6.2l2.5-1c.5.4 1.1.7 1.7 1l.4 2.7c0 .2.2.4.5.4h4c.3 0 .5-.2.5-.4l.4-2.7c.6-.2 1.2-.6 1.7-1l2.5 1c.2.1.5 0 .6-.2l2-3.5c.1-.2.1-.5-.1-.6L19.4 13zM12 15.5c-1.9 0-3.5-1.6-3.5-3.5s1.6-3.5 3.5-3.5 3.5 1.6 3.5 3.5-1.6 3.5-3.5 3.5z"/></svg>
             <span class="btn-label"><?php echo htmlspecialchars(t('header_settings')); ?></span>
         </button>
@@ -1105,7 +1110,7 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
 
 <div id="content-topbar">
     <div class="topbar-appname"><?php echo htmlspecialchars($site_name); ?></div>
-    <button class="mobile-settings-btn" onclick="openModal('settingsModal')">
+    <button class="mobile-settings-btn" onclick="showSection('settings-page')">
         <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M19.4 13c0-.3.1-.6.1-1s0-.7-.1-1l2.1-1.7c.2-.2.2-.4.1-.6l-2-3.5c-.1-.2-.3-.3-.6-.2l-2.5 1c-.5-.4-1.1-.7-1.7-1l-.4-2.7c0-.2-.2-.4-.5-.4h-4c-.3 0-.5.2-.5.4l-.4 2.7c-.6.2-1.2.6-1.7 1l-2.5-1c-.2-.1-.5 0-.6.2l-2 3.5c-.1.2-.1.5.1.6L4.6 11c-.1.3-.1.6-.1 1s0 .7.1 1l-2.1 1.7c-.2.2-.2.4-.1.6l2 3.5c.1.2.3.3.6.2l2.5-1c.5.4 1.1.7 1.7 1l.4 2.7c0 .2.2.4.5.4h4c.3 0 .5-.2.5-.4l.4-2.7c.6-.2 1.2-.6 1.7-1l2.5 1c.2.1.5 0 .6-.2l2-3.5c.1-.2.1-.5-.1-.6L19.4 13zM12 15.5c-1.9 0-3.5-1.6-3.5-3.5s1.6-3.5 3.5-3.5 3.5 1.6 3.5 3.5-1.6 3.5-3.5 3.5z"/></svg>
     </button>
     <div class="topbar-search">
@@ -1115,76 +1120,78 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
 </div>
 
 <?php if ($is_admin): ?>
-<div id="adminPanelModal" class="modal"><div class="modal-content">
-    <h2 style="margin-top:0;color:#e67e22;"><?php echo htmlspecialchars(t('admin_title')); ?></h2>
-    <form method="post" enctype="multipart/form-data">
-        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
+<main id="admin-page" style="display:none;">
+    <h2 class="section-title" style="margin-bottom:25px;color:#e67e22;"><?php echo htmlspecialchars(t('admin_title')); ?></h2>
+    <div class="settings-page-wrap">
+        <form method="post" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
 
-        <div class="adm-accordion-item open">
-            <div class="adm-accordion-header" onclick="toggleAccordion(this)"><?php echo htmlspecialchars(t('admin_section_general')); ?></div>
-            <div class="adm-accordion-content" style="display:block;">
-                <label><?php echo htmlspecialchars(t('admin_app_name')); ?></label>
-                <input type="text" name="adm_site_name" value="<?php echo htmlspecialchars($site_name); ?>" required>
-            </div>
-        </div>
-
-        <div class="adm-accordion-item">
-            <div class="adm-accordion-header" onclick="toggleAccordion(this)"><?php echo htmlspecialchars(t('admin_section_theme')); ?></div>
-            <div class="adm-accordion-content">
-                <div class="extended-color-grid">
-                    <div class="extended-color-item"><span><?php echo htmlspecialchars(t('color_bg')); ?></span><input type="color" name="adm_color_bg" value="<?php echo $color_bg; ?>"></div>
-                    <div class="extended-color-item"><span><?php echo htmlspecialchars(t('color_panel')); ?></span><input type="color" name="adm_color_panel" value="<?php echo $color_panel; ?>"></div>
-                    <div class="extended-color-item"><span><?php echo htmlspecialchars(t('color_primary')); ?></span><input type="color" name="adm_color_primary" value="<?php echo $color_primary; ?>"></div>
-                    <div class="extended-color-item"><span><?php echo htmlspecialchars(t('color_accent')); ?></span><input type="color" name="adm_color_accent" value="<?php echo $color_accent; ?>"></div>
-                    <div class="extended-color-item"><span><?php echo htmlspecialchars(t('color_text')); ?></span><input type="color" name="adm_color_text" value="<?php echo $color_text; ?>"></div>
-                    <div class="extended-color-item"><span><?php echo htmlspecialchars(t('color_text_muted')); ?></span><input type="color" name="adm_color_text_muted" value="<?php echo $color_text_muted; ?>"></div>
-                    <div class="extended-color-item"><span><?php echo htmlspecialchars(t('color_border')); ?></span><input type="color" name="adm_color_border" value="<?php echo $color_border; ?>"></div>
-                    <div class="extended-color-item"><span><?php echo htmlspecialchars(t('color_search_bg')); ?></span><input type="color" name="adm_color_search_bg" value="<?php echo $color_search_bg; ?>"></div>
-                    <div class="extended-color-item"><span><?php echo htmlspecialchars(t('color_fp_gradient_1')); ?></span><input type="color" name="adm_color_fp_gradient_1" value="<?php echo $color_fp_gradient_1; ?>"></div>
-                    <div class="extended-color-item"><span><?php echo htmlspecialchars(t('color_fp_gradient_2')); ?></span><input type="color" name="adm_color_fp_gradient_2" value="<?php echo $color_fp_gradient_2; ?>"></div>
-                </div>
-                <label style="margin-top:12px;display:block;"><?php echo htmlspecialchars(t('color_header_bg_label')); ?></label>
-                <input type="text" name="adm_color_header_bg" value="<?php echo htmlspecialchars($color_header_bg); ?>">
-                <label><?php echo htmlspecialchars(t('color_player_bg_label')); ?></label>
-                <input type="text" name="adm_color_player_bg" value="<?php echo htmlspecialchars($color_player_bg); ?>">
-                <label><?php echo htmlspecialchars(t('color_mob_nav_bg_label')); ?></label>
-                <input type="text" name="adm_color_mob_nav_bg" value="<?php echo htmlspecialchars($color_mob_nav_bg); ?>">
-            </div>
-        </div>
-
-        <div class="adm-accordion-item">
-            <div class="adm-accordion-header" onclick="toggleAccordion(this)"><?php echo htmlspecialchars(t('admin_section_assets')); ?></div>
-            <div class="adm-accordion-content">
-                <label><?php echo htmlspecialchars(t('admin_new_favicon')); ?></label>
-                <input type="file" name="adm_favicon" accept="image/png,image/x-icon">
-                <label><?php echo htmlspecialchars(t('admin_new_cover')); ?></label>
-                <input type="file" name="adm_default_cover" accept="image/png">
-            </div>
-        </div>
-
-        <div class="adm-accordion-item">
-            <div class="adm-accordion-header" onclick="toggleAccordion(this)"><?php echo htmlspecialchars(t('admin_section_genres')); ?></div>
-            <div class="adm-accordion-content">
-                <label><?php echo htmlspecialchars(t('admin_create_genre')); ?></label>
-                <input type="text" name="adm_new_genre" placeholder="<?php echo htmlspecialchars(t('admin_genre_ph')); ?>">
-                <label style="font-weight:bold;display:block;margin-bottom:5px;"><?php echo htmlspecialchars(t('admin_active_genres')); ?></label>
-                <div style="max-height:160px;overflow-y:auto;border:1px solid var(--border-color);padding:10px;border-radius:10px;">
-                    <?php foreach ($genresList as $g): ?>
-                        <div class="adm-genre-item">
-                            <span><?php echo htmlspecialchars(fixEntities($g)); ?></span>
-                            <a href="?delete_genre=<?php echo urlencode($g); ?>" style="color:var(--danger);text-decoration:none;font-weight:bold;" onclick="return confirm('<?php echo htmlspecialchars(t('confirm_delete_genre'), ENT_QUOTES); ?>')">✕</a>
-                        </div>
-                    <?php endforeach; ?>
+            <div class="adm-accordion-item open">
+                <div class="adm-accordion-header" onclick="toggleAccordion(this)"><?php echo htmlspecialchars(t('admin_section_general')); ?></div>
+                <div class="adm-accordion-content" style="display:block;">
+                    <label><?php echo htmlspecialchars(t('admin_app_name')); ?></label>
+                    <input type="text" name="adm_site_name" value="<?php echo htmlspecialchars($site_name); ?>" required>
                 </div>
             </div>
-        </div>
 
-        <div style="display:flex;gap:15px;margin-top:25px;">
-            <button type="button" class="btn" style="flex:1;border:1px solid rgba(255,255,255,.1);" onclick="closeModal('adminPanelModal')"><?php echo htmlspecialchars(t('btn_cancel')); ?></button>
-            <button type="submit" name="save_admin_settings" class="btn btn-primary" style="flex:1;"><?php echo htmlspecialchars(t('btn_save')); ?></button>
-        </div>
-    </form>
-</div></div>
+            <div class="adm-accordion-item">
+                <div class="adm-accordion-header" onclick="toggleAccordion(this)"><?php echo htmlspecialchars(t('admin_section_theme')); ?></div>
+                <div class="adm-accordion-content">
+                    <div class="extended-color-grid">
+                        <div class="extended-color-item"><span><?php echo htmlspecialchars(t('color_bg')); ?></span><input type="color" name="adm_color_bg" value="<?php echo $color_bg; ?>"></div>
+                        <div class="extended-color-item"><span><?php echo htmlspecialchars(t('color_panel')); ?></span><input type="color" name="adm_color_panel" value="<?php echo $color_panel; ?>"></div>
+                        <div class="extended-color-item"><span><?php echo htmlspecialchars(t('color_primary')); ?></span><input type="color" name="adm_color_primary" value="<?php echo $color_primary; ?>"></div>
+                        <div class="extended-color-item"><span><?php echo htmlspecialchars(t('color_accent')); ?></span><input type="color" name="adm_color_accent" value="<?php echo $color_accent; ?>"></div>
+                        <div class="extended-color-item"><span><?php echo htmlspecialchars(t('color_text')); ?></span><input type="color" name="adm_color_text" value="<?php echo $color_text; ?>"></div>
+                        <div class="extended-color-item"><span><?php echo htmlspecialchars(t('color_text_muted')); ?></span><input type="color" name="adm_color_text_muted" value="<?php echo $color_text_muted; ?>"></div>
+                        <div class="extended-color-item"><span><?php echo htmlspecialchars(t('color_border')); ?></span><input type="color" name="adm_color_border" value="<?php echo $color_border; ?>"></div>
+                        <div class="extended-color-item"><span><?php echo htmlspecialchars(t('color_search_bg')); ?></span><input type="color" name="adm_color_search_bg" value="<?php echo $color_search_bg; ?>"></div>
+                        <div class="extended-color-item"><span><?php echo htmlspecialchars(t('color_fp_gradient_1')); ?></span><input type="color" name="adm_color_fp_gradient_1" value="<?php echo $color_fp_gradient_1; ?>"></div>
+                        <div class="extended-color-item"><span><?php echo htmlspecialchars(t('color_fp_gradient_2')); ?></span><input type="color" name="adm_color_fp_gradient_2" value="<?php echo $color_fp_gradient_2; ?>"></div>
+                    </div>
+                    <label style="margin-top:12px;display:block;"><?php echo htmlspecialchars(t('color_header_bg_label')); ?></label>
+                    <input type="text" name="adm_color_header_bg" value="<?php echo htmlspecialchars($color_header_bg); ?>">
+                    <label><?php echo htmlspecialchars(t('color_player_bg_label')); ?></label>
+                    <input type="text" name="adm_color_player_bg" value="<?php echo htmlspecialchars($color_player_bg); ?>">
+                    <label><?php echo htmlspecialchars(t('color_mob_nav_bg_label')); ?></label>
+                    <input type="text" name="adm_color_mob_nav_bg" value="<?php echo htmlspecialchars($color_mob_nav_bg); ?>">
+                </div>
+            </div>
+
+            <div class="adm-accordion-item">
+                <div class="adm-accordion-header" onclick="toggleAccordion(this)"><?php echo htmlspecialchars(t('admin_section_assets')); ?></div>
+                <div class="adm-accordion-content">
+                    <label><?php echo htmlspecialchars(t('admin_new_favicon')); ?></label>
+                    <input type="file" name="adm_favicon" accept="image/png,image/x-icon">
+                    <label><?php echo htmlspecialchars(t('admin_new_cover')); ?></label>
+                    <input type="file" name="adm_default_cover" accept="image/png">
+                </div>
+            </div>
+
+            <div class="adm-accordion-item">
+                <div class="adm-accordion-header" onclick="toggleAccordion(this)"><?php echo htmlspecialchars(t('admin_section_genres')); ?></div>
+                <div class="adm-accordion-content">
+                    <label><?php echo htmlspecialchars(t('admin_create_genre')); ?></label>
+                    <input type="text" name="adm_new_genre" placeholder="<?php echo htmlspecialchars(t('admin_genre_ph')); ?>">
+                    <label style="font-weight:bold;display:block;margin-bottom:5px;"><?php echo htmlspecialchars(t('admin_active_genres')); ?></label>
+                    <div style="max-height:160px;overflow-y:auto;border:1px solid var(--border-color);padding:10px;border-radius:10px;">
+                        <?php foreach ($genresList as $g): ?>
+                            <div class="adm-genre-item">
+                                <span><?php echo htmlspecialchars(fixEntities($g)); ?></span>
+                                <a href="?delete_genre=<?php echo urlencode($g); ?>&page=admin-page" style="color:var(--danger);text-decoration:none;font-weight:bold;" onclick="return confirm('<?php echo htmlspecialchars(t('confirm_delete_genre'), ENT_QUOTES); ?>')">✕</a>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            </div>
+
+            <div style="display:flex;gap:15px;margin-top:25px;">
+                <button type="button" class="btn" style="flex:1;border:1px solid rgba(255,255,255,.1);" onclick="showSection('accueil')"><?php echo htmlspecialchars(t('btn_cancel')); ?></button>
+                <button type="submit" name="save_admin_settings" class="btn btn-primary" style="flex:1;"><?php echo htmlspecialchars(t('btn_save')); ?></button>
+            </div>
+        </form>
+    </div>
+</main>
 <?php endif; ?>
 
 <main id="accueil">
@@ -1368,7 +1375,7 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
         <svg viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg><?php echo htmlspecialchars(t('mobnav_mixes')); ?>
     </button>
     <?php if ($is_admin): ?>
-        <button class="mob-nav-item" onclick="openModal('adminPanelModal')" style="color:#e67e22;">
+        <button class="mob-nav-item" id="mob-nav-admin-page" onclick="showSection('admin-page')" style="color:#e67e22;">
             <svg viewBox="0 0 24 24"><path d="M19.4 13c0-.3.1-.6.1-1s0-.7-.1-1l2.1-1.7c.2-.2.2-.4.1-.6l-2-3.5c-.1-.2-.3-.3-.6-.2l-2.5 1c-.5-.4-1.1-.7-1.7-1l-.4-2.7c0-.2-.2-.4-.5-.4h-4c-.3 0-.5.2-.5.4l-.4 2.7c-.6.2-1.2.6-1.7 1l-2.5-1c-.2-.1-.5 0-.6.2l-2 3.5c-.1.2-.1.5.1.6L4.6 11c-.1.3-.1.6-.1 1s0 .7.1 1l-2.1 1.7c-.2.2-.2.4-.1.6l2 3.5c.1.2.3.3.6.2l2.5-1c.5.4 1.1.7 1.7 1l.4 2.7c0 .2.2.4.5.4h4c.3 0 .5-.2.5-.4l.4-2.7c.6-.2 1.2-.6 1.7-1l2.5 1c.2.1.5 0 .6-.2l2-3.5c.1-.2.1-.5-.1-.6L19.4 13zM12 15.5c-1.9 0-3.5-1.6-3.5-3.5s1.6-3.5 3.5-3.5 3.5 1.6 3.5 3.5-1.6 3.5-3.5 3.5z"/></svg>Admin
         </button>
     <?php endif; ?>
@@ -1378,32 +1385,32 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
 </div>
 
 <!-- Modals -->
-<div id="settingsModal" class="modal"><div class="modal-content">
-    <h2 style="margin-top:0;"><?php echo htmlspecialchars(t('settings_title')); ?></h2>
+<main id="settings-page" style="display:none;">
+    <h2 class="section-title" style="margin-bottom:25px;"><?php echo htmlspecialchars(t('settings_title')); ?></h2>
+    <div class="settings-page-wrap">
+        <p style="color:var(--text-muted);font-size:.9em;margin-bottom:10px;"><?php echo htmlspecialchars(t('settings_language_label')); ?></p>
+        <div class="lang-switch" style="margin-bottom:20px;">
+            <a href="?setlang=fr" class="<?php echo $LANG === 'fr' ? 'active' : ''; ?>">FR</a>
+            <a href="?setlang=en" class="<?php echo $LANG === 'en' ? 'active' : ''; ?>">EN</a>
+        </div>
 
-    <p style="color:var(--text-muted);font-size:.9em;margin-bottom:10px;"><?php echo htmlspecialchars(t('settings_language_label')); ?></p>
-    <div class="lang-switch" style="margin-bottom:20px;">
-        <a href="?setlang=fr" class="<?php echo $LANG === 'fr' ? 'active' : ''; ?>">FR</a>
-        <a href="?setlang=en" class="<?php echo $LANG === 'en' ? 'active' : ''; ?>">EN</a>
+        <p style="color:var(--text-muted);font-size:.9em;margin-bottom:10px;"><?php echo htmlspecialchars(t('settings_theme_label')); ?></p>
+        <div class="theme-swatch-grid" id="theme-swatch-grid"></div>
+
+        <p style="color:var(--text-muted);font-size:.9em;margin-bottom:20px;"><?php echo htmlspecialchars(t('settings_hide_genres_pre')); ?> <strong style="color:var(--danger);"><?php echo htmlspecialchars(t('settings_hide_genres_word')); ?></strong> :</p>
+        <div class="settings-grid">
+            <?php foreach ($genresList as $g): ?>
+                <label><input type="checkbox" class="genre-filter-cb" data-genre="<?php echo htmlspecialchars($g); ?>" onchange="toggleGenreSetting('<?php echo htmlspecialchars($g); ?>',this.checked)"> <?php echo htmlspecialchars(fixEntities($g)); ?></label>
+            <?php endforeach; ?>
+        </div>
+
+        <button class="btn btn-outline" style="width:100%;justify-content:center;margin-bottom:12px;" onclick="openModal('equalizerModal');renderEqSliders();"><?php echo htmlspecialchars(t('settings_open_eq')); ?></button>
+        <a href="?logout=1" class="btn btn-outline" style="width:100%;justify-content:center;color:var(--text-muted);">
+            <svg class="btn-icon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
+            <?php echo htmlspecialchars(t('header_logout')); ?>
+        </a>
     </div>
-
-    <p style="color:var(--text-muted);font-size:.9em;margin-bottom:10px;"><?php echo htmlspecialchars(t('settings_theme_label')); ?></p>
-    <div class="theme-swatch-grid" id="theme-swatch-grid"></div>
-
-    <p style="color:var(--text-muted);font-size:.9em;margin-bottom:20px;"><?php echo htmlspecialchars(t('settings_hide_genres_pre')); ?> <strong style="color:var(--danger);"><?php echo htmlspecialchars(t('settings_hide_genres_word')); ?></strong> :</p>
-    <div class="settings-grid">
-        <?php foreach ($genresList as $g): ?>
-            <label><input type="checkbox" class="genre-filter-cb" data-genre="<?php echo htmlspecialchars($g); ?>" onchange="toggleGenreSetting('<?php echo htmlspecialchars($g); ?>',this.checked)"> <?php echo htmlspecialchars(fixEntities($g)); ?></label>
-        <?php endforeach; ?>
-    </div>
-
-    <button class="btn btn-outline" style="width:100%;justify-content:center;margin-bottom:12px;" onclick="closeModal('settingsModal');openModal('equalizerModal');renderEqSliders();"><?php echo htmlspecialchars(t('settings_open_eq')); ?></button>
-    <a href="?logout=1" class="btn btn-outline" style="width:100%;justify-content:center;margin-bottom:12px;color:var(--text-muted);">
-        <svg class="btn-icon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
-        <?php echo htmlspecialchars(t('header_logout')); ?>
-    </a>
-    <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="closeModal('settingsModal')"><?php echo htmlspecialchars(t('btn_close')); ?></button>
-</div></div>
+</main>
 
 <div id="equalizerModal" class="modal"><div class="modal-content">
     <h2 style="margin-top:0;"><?php echo htmlspecialchars(t('eq_title')); ?></h2>
@@ -3063,7 +3070,7 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
 
     function showSection(id, doUrl = true) {
         if (document.getElementById('full-player').classList.contains('active')) closeFullPlayer();
-        ['accueil', 'playlists', 'albums', 'artists', 'artist-page', 'album-page', 'playlist-page', 'history'].forEach(sectionId => {
+        ['accueil', 'playlists', 'albums', 'artists', 'artist-page', 'album-page', 'playlist-page', 'history', 'settings-page', 'admin-page'].forEach(sectionId => {
             const el = document.getElementById(sectionId);
             if (sectionId === id) {
                 el.style.display = 'block';
