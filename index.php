@@ -720,7 +720,7 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
            réglages en pleine largeur (1600px) serait illisible (champs texte
            et color-pickers étirés sur toute la largeur) ; on garde le confort
            de lecture d'une carte de modale sans revenir à une pop-up. */
-        .settings-page-wrap { max-width:600px; }
+        .settings-page-wrap { max-width:600px; margin:0 auto; }
         .controls-container { display:flex; align-items:center; justify-content:space-between; gap:15px; margin-bottom:25px; }
         .section-title { border-left:5px solid var(--primary); padding-left:15px; margin-bottom:20px; font-size:1.5em; border-radius:2px; }
         .search-row { display:flex; align-items:center; gap:15px; width:100%; }
