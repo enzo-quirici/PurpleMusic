@@ -322,6 +322,7 @@ function extractMp3Data($path) {
     $header = fread($f, 10);
     if (substr($header, 0, 3) !== 'ID3') { fclose($f); return ['artist'=>null, 'title'=>null, 'album'=>null, 'cover'=>null]; }
 
+    $majorVersion = ord($header[3]);
     $b = unpack('C*', substr($header, 6, 4));
     $tagSize = ($b[1] << 21) | ($b[2] << 14) | ($b[3] << 7) | $b[4];
     // Un tag ID3v2 présent mais vide (taille 0) est un fichier valide — certains
@@ -334,15 +335,59 @@ function extractMp3Data($path) {
     fclose($f);
 
     $result = ['cover' => null, 'artist' => null, 'title' => null, 'album' => null];
+
+    // ID3v2.2 : en-têtes de frame sur 6 octets (ID 3 lettres, taille 3
+    // octets classique, pas de flags) — format différent de v2.3/v2.4,
+    // encore rencontré sur d'anciens fichiers tagués par des outils
+    // historiques ; sans cette branche, TP1/TT2/TAL n'étaient jamais
+    // reconnus et artiste/titre/album restaient systématiquement vides.
+    if ($majorVersion <= 2) {
+        $pos = 0;
+        $names = ['TP1' => 'artist', 'TT2' => 'title', 'TAL' => 'album'];
+        while ($pos < strlen($tagData) - 6) {
+            $frameName = substr($tagData, $pos, 3);
+            $sb = unpack('C3', substr($tagData, $pos + 3, 3));
+            $frameSize = ($sb[1] << 16) | ($sb[2] << 8) | $sb[3];
+            if ($frameSize <= 0 || $frameName === "\x00\x00\x00") break;
+
+            $body = substr($tagData, $pos + 6, $frameSize);
+            if (isset($names[$frameName]) && strlen($body) > 1) {
+                $result[$names[$frameName]] = trim(preg_replace('/[\x00-\x1F\x7F]/u', '', substr($body, 1)));
+            } elseif ($frameName === 'PIC') {
+                $jpgPos = strpos($body, "\xFF\xD8"); $pngPos = strpos($body, "\x89PNG");
+                $start = false; $mime = 'image/jpeg';
+                if ($jpgPos !== false && ($pngPos === false || $jpgPos < $pngPos)) { $start = $jpgPos; }
+                elseif ($pngPos !== false) { $start = $pngPos; $mime = 'image/png'; }
+                if ($start !== false) $result['cover'] = ['mime' => $mime, 'data' => substr($body, $start)];
+            }
+            $pos += 6 + $frameSize;
+        }
+        return $result;
+    }
+
+    // ID3v2.3 / ID3v2.4 : en-têtes de frame sur 10 octets (ID 4 lettres,
+    // taille 4 octets, 2 octets de flags). Seule la forme de la taille
+    // change : entier 32 bits classique en v2.3, "synchsafe" (7 bits
+    // utiles par octet, comme la taille du tag lui-même) en v2.4 —
+    // l'interpréter comme un entier classique en v2.4 surestime la taille
+    // et décale la lecture de toutes les frames suivantes, ce qui perdait
+    // typiquement le titre/album dès qu'un artiste ou une pochette
+    // dépassait 127 octets.
     $pos = 0;
     while ($pos < strlen($tagData) - 10) {
         $frameHeader = substr($tagData, $pos, 10);
         $frameName = substr($frameHeader, 0, 4);
-        $s = unpack('N', substr($frameHeader, 4, 4));
-        $frameSize = $s[1];
-        
-        if ($frameSize == 0 || $frameName == "\x00\x00\x00\x00") break;
-        
+        $sizeBytes = substr($frameHeader, 4, 4);
+        if ($majorVersion >= 4) {
+            $sb = unpack('C4', $sizeBytes);
+            $frameSize = ($sb[1] << 21) | ($sb[2] << 14) | ($sb[3] << 7) | $sb[4];
+        } else {
+            $s = unpack('N', $sizeBytes);
+            $frameSize = $s[1];
+        }
+
+        if ($frameSize <= 0 || $frameName === "\x00\x00\x00\x00") break;
+
         if ($frameName === 'TPE1') {
             $body = substr($tagData, $pos + 10, $frameSize);
             if(strlen($body) > 1) $result['artist'] = trim(preg_replace('/[\x00-\x1F\x7F]/u', '', substr($body, 1)));
