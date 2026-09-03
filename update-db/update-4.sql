@@ -2,7 +2,7 @@
 --  Purple Music / Amethyst Music — Migration 4 : Index pour
 --  l'historique d'écoute à grande échelle
 --  À exécuter une seule fois sur une base existante :
---    mysql -u root -p purple_music < update-db/update-4.sql
+--    mysql --default-character-set=utf8mb4 -u root -p purple_music < update-db/update-4.sql
 --
 --  Contrairement aux migrations précédentes, celle-ci n'utilise PAS la
 --  syntaxe raccourcie "... IF NOT EXISTS" sur CREATE INDEX / ADD COLUMN /

@@ -1,7 +1,7 @@
 -- ==========================================================
 --  Purple Music / Amethyst Music — Migration 3 : Historique d'écoute
 --  À exécuter une seule fois sur une base existante :
---    mysql -u root -p purple_music < update-db/update-3.sql
+--    mysql --default-character-set=utf8mb4 -u root -p purple_music < update-db/update-3.sql
 --
 --  Base du moteur de recommandation (action=recommend dans api.php) :
 --  chaque lecture d'un morceau par un utilisateur connecté est

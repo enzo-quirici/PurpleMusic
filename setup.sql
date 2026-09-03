@@ -1,6 +1,13 @@
 -- ==========================================================
 --  Purple Music — Script de création MySQL
---  Exécuter en tant que root : mysql -u root -p < setup_purple_music.sql
+--  Exécuter en tant que root :
+--    mysql --default-character-set=utf8mb4 -u root -p < setup.sql
+--
+--  Le drapeau --default-character-set=utf8mb4 est important : sans lui,
+--  le client mysql utilise latin1 par défaut et corrompt silencieusement
+--  les caractères non-ASCII de ce fichier (ex: "Qualité inférieure" côté
+--  genres) en un double encodage UTF-8 dès l'insertion, même si la base et
+--  les tables sont bien déclarées en utf8mb4.
 -- ==========================================================
 
 -- 1. Création de la base de données

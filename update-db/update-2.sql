@@ -1,7 +1,7 @@
 -- ==========================================================
 --  Purple Music / Amethyst Music — Migration 2 : Visibilité des playlists
 --  À exécuter une seule fois sur une base existante :
---    mysql -u root -p purple_music < update-db/update-2.sql
+--    mysql --default-character-set=utf8mb4 -u root -p purple_music < update-db/update-2.sql
 --
 --  Nécessite MySQL 8.0.29+ ou MariaDB 10.5.2+ (support de
 --  "ADD COLUMN IF NOT EXISTS"). Sur une version plus ancienne,
