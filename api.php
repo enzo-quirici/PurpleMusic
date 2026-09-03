@@ -324,6 +324,12 @@ function extractMp3Data($path) {
 
     $b = unpack('C*', substr($header, 6, 4));
     $tagSize = ($b[1] << 21) | ($b[2] << 14) | ($b[3] << 7) | $b[4];
+    // Un tag ID3v2 présent mais vide (taille 0) est un fichier valide — certains
+    // encodeurs écrivent un en-tête ID3v2 sans frames. fread() rejette une
+    // longueur de 0 depuis PHP 8.1 (ValueError), ce qui faisait échouer tout
+    // l'upload (pas seulement l'auto-détection) au lieu de simplement ne rien
+    // trouver à extraire.
+    if ($tagSize <= 0) { fclose($f); return ['artist'=>null, 'title'=>null, 'album'=>null, 'cover'=>null]; }
     $tagData = fread($f, $tagSize);
     fclose($f);
 
