@@ -289,6 +289,10 @@ $I18N = [
     'nav_admin'               => ['fr' => 'Panel Admin',                    'en' => 'Admin Panel'],
     'header_settings'         => ['fr' => 'Paramètres',                     'en' => 'Settings'],
     'header_history'          => ['fr' => 'Historique',                     'en' => 'History'],
+    'header_upload'           => ['fr' => 'Upload',                         'en' => 'Upload'],
+    'header_mix'              => ['fr' => 'Mix',                            'en' => 'Mix'],
+    'eq_preset_rock'          => ['fr' => 'Rock',                           'en' => 'Rock'],
+    'eq_preset_pop'           => ['fr' => 'Pop',                            'en' => 'Pop'],
     'history_title'           => ['fr' => "Historique d'écoute",            'en' => 'Listening History'],
     'header_logout'           => ['fr' => 'Sortir',                         'en' => 'Log out'],
     'search_placeholder'      => ['fr' => 'Rechercher titre, artiste...',   'en' => 'Search title, artist...'],
@@ -346,6 +350,8 @@ $I18N = [
     'btn_add_song'            => ['fr' => 'Ajouter',                        'en' => 'Add songs'],
     'mobnav_library'          => ['fr' => 'Biblio',                         'en' => 'Library'],
     'mobnav_mixes'            => ['fr' => 'Mixs',                           'en' => 'Mixes'],
+    'mobnav_admin'            => ['fr' => 'Admin',                          'en' => 'Admin'],
+    'mobnav_upload'           => ['fr' => 'Upload',                         'en' => 'Upload'],
     'settings_title'          => ['fr' => 'Filtres & Paramètres',           'en' => 'Filters & Settings'],
     'settings_language_label' => ['fr' => 'Langue :',                       'en' => 'Language:'],
     'settings_theme_label'    => ['fr' => 'Thème :',                        'en' => 'Theme:'],
@@ -1086,13 +1092,13 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
         <?php endif; ?>
     </nav>
     <div class="header-actions">
-        <button class="btn btn-primary btn-labeled" onclick="openCreateModal()" title="Mix">
+        <button class="btn btn-primary btn-labeled" onclick="openCreateModal()" title="<?php echo htmlspecialchars(t('header_mix')); ?>">
             <svg class="btn-icon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-            <span class="btn-label">Mix</span>
+            <span class="btn-label"><?php echo htmlspecialchars(t('header_mix')); ?></span>
         </button>
-        <button class="btn btn-outline btn-labeled" onclick="openModal('uploadModal')" title="Upload">
+        <button class="btn btn-outline btn-labeled" onclick="openModal('uploadModal')" title="<?php echo htmlspecialchars(t('header_upload')); ?>">
             <svg class="btn-icon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>
-            <span class="btn-label">Upload</span>
+            <span class="btn-label"><?php echo htmlspecialchars(t('header_upload')); ?></span>
         </button>
         <button class="btn btn-outline btn-labeled" onclick="showHistoryPage()" title="<?php echo htmlspecialchars(t('header_history')); ?>">
             <svg class="btn-icon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
@@ -1376,11 +1382,11 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
     </button>
     <?php if ($is_admin): ?>
         <button class="mob-nav-item" id="mob-nav-admin-page" onclick="showSection('admin-page')" style="color:#e67e22;">
-            <svg viewBox="0 0 24 24"><path d="M19.4 13c0-.3.1-.6.1-1s0-.7-.1-1l2.1-1.7c.2-.2.2-.4.1-.6l-2-3.5c-.1-.2-.3-.3-.6-.2l-2.5 1c-.5-.4-1.1-.7-1.7-1l-.4-2.7c0-.2-.2-.4-.5-.4h-4c-.3 0-.5.2-.5.4l-.4 2.7c-.6.2-1.2.6-1.7 1l-2.5-1c-.2-.1-.5 0-.6.2l-2 3.5c-.1.2-.1.5.1.6L4.6 11c-.1.3-.1.6-.1 1s0 .7.1 1l-2.1 1.7c-.2.2-.2.4-.1.6l2 3.5c.1.2.3.3.6.2l2.5-1c.5.4 1.1.7 1.7 1l.4 2.7c0 .2.2.4.5.4h4c.3 0 .5-.2.5-.4l.4-2.7c.6-.2 1.2-.6 1.7-1l2.5 1c.2.1.5 0 .6-.2l2-3.5c.1-.2.1-.5-.1-.6L19.4 13zM12 15.5c-1.9 0-3.5-1.6-3.5-3.5s1.6-3.5 3.5-3.5 3.5 1.6 3.5 3.5-1.6 3.5-3.5 3.5z"/></svg>Admin
+            <svg viewBox="0 0 24 24"><path d="M19.4 13c0-.3.1-.6.1-1s0-.7-.1-1l2.1-1.7c.2-.2.2-.4.1-.6l-2-3.5c-.1-.2-.3-.3-.6-.2l-2.5 1c-.5-.4-1.1-.7-1.7-1l-.4-2.7c0-.2-.2-.4-.5-.4h-4c-.3 0-.5.2-.5.4l-.4 2.7c-.6.2-1.2.6-1.7 1l-2.5-1c-.2-.1-.5 0-.6.2l-2 3.5c-.1.2-.1.5.1.6L4.6 11c-.1.3-.1.6-.1 1s0 .7.1 1l-2.1 1.7c-.2.2-.2.4-.1.6l2 3.5c.1.2.3.3.6.2l2.5-1c.5.4 1.1.7 1.7 1l.4 2.7c0 .2.2.4.5.4h4c.3 0 .5-.2.5-.4l.4-2.7c.6-.2 1.2-.6 1.7-1l2.5 1c.2.1.5 0 .6-.2l2-3.5c.1-.2.1-.5-.1-.6L19.4 13zM12 15.5c-1.9 0-3.5-1.6-3.5-3.5s1.6-3.5 3.5-3.5 3.5 1.6 3.5 3.5-1.6 3.5-3.5 3.5z"/></svg><?php echo htmlspecialchars(t('mobnav_admin')); ?>
         </button>
     <?php endif; ?>
     <button class="mob-nav-item" onclick="openModal('uploadModal')">
-        <svg viewBox="0 0 24 24"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>Upload
+        <svg viewBox="0 0 24 24"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg><?php echo htmlspecialchars(t('mobnav_upload')); ?>
     </button>
 </div>
 
@@ -1422,8 +1428,8 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
         <button type="button" class="btn btn-outline" onclick="applyEqPreset('bass')"><?php echo htmlspecialchars(t('eq_preset_bass')); ?></button>
         <button type="button" class="btn btn-outline" onclick="applyEqPreset('treble')"><?php echo htmlspecialchars(t('eq_preset_treble')); ?></button>
         <button type="button" class="btn btn-outline" onclick="applyEqPreset('vocal')"><?php echo htmlspecialchars(t('eq_preset_vocal')); ?></button>
-        <button type="button" class="btn btn-outline" onclick="applyEqPreset('rock')">Rock</button>
-        <button type="button" class="btn btn-outline" onclick="applyEqPreset('pop')">Pop</button>
+        <button type="button" class="btn btn-outline" onclick="applyEqPreset('rock')"><?php echo htmlspecialchars(t('eq_preset_rock')); ?></button>
+        <button type="button" class="btn btn-outline" onclick="applyEqPreset('pop')"><?php echo htmlspecialchars(t('eq_preset_pop')); ?></button>
     </div>
     <?php foreach ([t('eq_band_bassboost'),'60 Hz','230 Hz','910 Hz','3.6 kHz','14 kHz'] as $i => $lbl): ?>
     <div class="eq-row">
@@ -1437,7 +1443,7 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
 </div></div>
 
 <div id="uploadModal" class="modal"><div class="modal-content">
-    <h2 style="margin-top:0;">Upload</h2>
+    <h2 style="margin-top:0;"><?php echo htmlspecialchars(t('header_upload')); ?></h2>
     <form id="upload-form">
         <input type="text" id="upload-title" placeholder="<?php echo htmlspecialchars(t('upload_title_ph')); ?>">
         <input type="text" id="upload-artist" placeholder="<?php echo htmlspecialchars(t('upload_artist_ph')); ?>">
