@@ -65,12 +65,19 @@ try {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
     // --- Historique d'écoute par utilisateur, base du moteur de recommandation ---
+    // idx_lh_user_played est un index composite (user_id, played_at, track_id) :
+    // il couvre entièrement la requête de action=recommend (WHERE user_id=?
+    // ORDER BY played_at DESC LIMIT 200, SELECT track_id — scan d'index pur,
+    // sans toucher la table) et accélère fortement le filtre WHERE user_id=?
+    // de action=history même à des millions de lignes. idx_lh_track reste
+    // utile pour les suppressions en cascade (fk_listen_history_track) et
+    // toute requête future par piste plutôt que par utilisateur.
     $db->exec("CREATE TABLE IF NOT EXISTS listen_history (
         id        INT AUTO_INCREMENT PRIMARY KEY,
         user_id   INT NOT NULL,
         track_id  INT NOT NULL,
         played_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        KEY idx_lh_user (user_id),
+        KEY idx_lh_user_played (user_id, played_at, track_id),
         KEY idx_lh_track (track_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
