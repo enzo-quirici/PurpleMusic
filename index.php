@@ -1206,8 +1206,8 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
                     <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M3 4c0-.55.45-1 1-1h10c.55 0 1 .45 1 1v1.5c0 .28-.11.53-.3.71L10 10.9v5.2c0 .28-.11.53-.29.71l-2 2c-.18.18-.43.29-.71.29s-.53-.11-.71-.29A.996.996 0 0 1 6 18.1v-7.2L3.3 6.21A.996.996 0 0 1 3 5.5V4z"/><rect x="16" y="5" width="6" height="2" rx="1"/><rect x="16" y="11" width="6" height="2" rx="1"/><rect x="16" y="17" width="6" height="2" rx="1"/></svg>
                 </div>
                 <select id="sortSelect" class="filter-select-overlay" onchange="filterAndSortTracks()">
-                    <option value="popular"><?php echo htmlspecialchars(t('sort_popular')); ?></option>
-                    <option value="date_desc" selected><?php echo htmlspecialchars(t('sort_date_desc')); ?></option>
+                    <option value="popular" selected><?php echo htmlspecialchars(t('sort_popular')); ?></option>
+                    <option value="date_desc"><?php echo htmlspecialchars(t('sort_date_desc')); ?></option>
                     <option value="date_asc"><?php echo htmlspecialchars(t('sort_date_asc')); ?></option>
                     <option value="alpha_asc"><?php echo htmlspecialchars(t('sort_alpha_asc')); ?></option>
                     <option value="alpha_desc"><?php echo htmlspecialchars(t('sort_alpha_desc')); ?></option>
