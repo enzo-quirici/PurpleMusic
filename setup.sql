@@ -97,6 +97,28 @@ CREATE TABLE IF NOT EXISTS `playlists` (
         ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- idx_lh_user_played (user_id, played_at, track_id) est un index composite
+-- couvrant : il sert intégralement la requête de recommandation (WHERE
+-- user_id=? ORDER BY played_at DESC LIMIT n, SELECT track_id) sans jamais
+-- toucher la table, et accélère le filtre WHERE user_id=? de l'historique
+-- même à des millions de lignes. idx_lh_track sert aux suppressions en
+-- cascade et à toute requête future par piste.
+CREATE TABLE IF NOT EXISTS `listen_history` (
+    `id`            INT UNSIGNED    NOT NULL AUTO_INCREMENT,
+    `user_id`       INT UNSIGNED    NOT NULL,
+    `track_id`      INT UNSIGNED    NOT NULL,
+    `played_at`     DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    KEY `idx_lh_user_played` (`user_id`, `played_at`, `track_id`),
+    KEY `idx_lh_track` (`track_id`),
+    CONSTRAINT `fk_listen_history_user`
+        FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
+        ON DELETE CASCADE,
+    CONSTRAINT `fk_listen_history_track`
+        FOREIGN KEY (`track_id`) REFERENCES `tracks` (`id`)
+        ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- ==========================================================
 --  DONNÉES PAR DÉFAUT — Genres & Settings de base
 -- ==========================================================
