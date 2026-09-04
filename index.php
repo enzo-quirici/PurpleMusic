@@ -900,7 +900,11 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
         input[type=range].vol-slider { -webkit-appearance:none; width:100%; height:4px; background:linear-gradient(90deg,var(--accent) 100%,rgba(255,255,255,.2) 100%); border-radius:5px; outline:none; cursor:pointer; }
         input[type=range].vol-slider::-webkit-slider-thumb { -webkit-appearance:none; width:12px; height:12px; background:#fff; border-radius:50%; cursor:pointer; transition:.2s; }
 
-        .modal { display:none; position:fixed; z-index:2000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,.6); backdrop-filter:blur(8px); opacity:0; transition:opacity .25s ease; }
+        /* Au-dessus de #full-player (z-index:5000, .fp-bottombar:5001,
+           #sidebar-toggle:5010) : sinon les modales (Mix, Upload, etc.)
+           s'ouvrent visuellement derrière le lecteur plein écran quand il
+           est actif. */
+        .modal { display:none; position:fixed; z-index:6000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,.6); backdrop-filter:blur(8px); opacity:0; transition:opacity .25s ease; }
         .modal.show { opacity:1; }
         .modal-content { background:var(--modal-bg); margin:5% auto; padding:30px; width:90%; max-width:550px; border-radius:28px; border:1px solid rgba(255,255,255,.1); box-shadow:0 25px 80px rgba(0,0,0,.5); max-height:85vh; overflow-y:auto; transform:scale(.9); opacity:0; transition:transform .25s cubic-bezier(.175,.885,.32,1.275),opacity .25s ease; }
         .modal.show .modal-content { transform:scale(1); opacity:1; }
