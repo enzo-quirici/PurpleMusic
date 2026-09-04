@@ -793,6 +793,24 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
         .carousel-card .cc-title { font-weight:700; font-size:.9em; margin-top:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .carousel-card .cc-artist { font-size:.78em; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
+        /* Anime les pochettes tant qu'elles n'ont pas fini de charger (au lieu
+           d'un carré plat/transparent) et les squelettes de cartes affichés
+           pendant qu'on attend encore les données (ex: action=recommend) —
+           même dégradé qui glisse, pour que les deux étapes s'enchaînent
+           visuellement sans à-coup. */
+        @keyframes coverShimmer { 0%{background-position:-135% 0} 100%{background-position:135% 0} }
+        .carousel-card img.cc-loading,
+        .carousel-card .cc-cover-skeleton,
+        .carousel-card .cc-title-skeleton,
+        .carousel-card .cc-artist-skeleton {
+            background:linear-gradient(90deg,rgba(255,255,255,.05) 25%,rgba(255,255,255,.13) 50%,rgba(255,255,255,.05) 75%);
+            background-size:250% 100%; animation:coverShimmer 1.4s ease-in-out infinite;
+        }
+        .carousel-card .cc-cover-skeleton { width:160px; height:160px; border-radius:12px; }
+        .carousel-card.artist-card .cc-cover-skeleton { border-radius:50%; }
+        .carousel-card .cc-title-skeleton { width:80%; height:.9em; border-radius:4px; margin-top:8px; }
+        .carousel-card .cc-artist-skeleton { width:55%; height:.78em; border-radius:4px; margin-top:5px; }
+
         .artist-link { cursor:pointer; }
         .artist-link:hover { color:var(--text); text-decoration:underline; }
         .artist-page-back { cursor:pointer; color:var(--text-muted); font-size:.9em; display:inline-flex; align-items:center; gap:6px; margin-bottom:12px; }
@@ -882,7 +900,11 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
         input[type=range].vol-slider { -webkit-appearance:none; width:100%; height:4px; background:linear-gradient(90deg,var(--accent) 100%,rgba(255,255,255,.2) 100%); border-radius:5px; outline:none; cursor:pointer; }
         input[type=range].vol-slider::-webkit-slider-thumb { -webkit-appearance:none; width:12px; height:12px; background:#fff; border-radius:50%; cursor:pointer; transition:.2s; }
 
-        .modal { display:none; position:fixed; z-index:2000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,.6); backdrop-filter:blur(8px); opacity:0; transition:opacity .25s ease; }
+        /* Au-dessus de #full-player (z-index:5000, .fp-bottombar:5001,
+           #sidebar-toggle:5010) : sinon les modales (Mix, Upload, etc.)
+           s'ouvrent visuellement derrière le lecteur plein écran quand il
+           est actif. */
+        .modal { display:none; position:fixed; z-index:6000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,.6); backdrop-filter:blur(8px); opacity:0; transition:opacity .25s ease; }
         .modal.show { opacity:1; }
         .modal-content { background:var(--modal-bg); margin:5% auto; padding:30px; width:90%; max-width:550px; border-radius:28px; border:1px solid rgba(255,255,255,.1); box-shadow:0 25px 80px rgba(0,0,0,.5); max-height:85vh; overflow-y:auto; transform:scale(.9); opacity:0; transition:transform .25s cubic-bezier(.175,.885,.32,1.275),opacity .25s ease; }
         .modal.show .modal-content { transform:scale(1); opacity:1; }
@@ -1250,7 +1272,7 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
             <div class="playlist-card" onclick="showPlaylistPage(<?php echo (int)$p['id']; ?>)">
                 <div class="playlist-cover-collage<?php echo $collageSlots === 1 ? ' single' : ''; ?>">
                     <?php for ($i = 0; $i < $collageSlots; $i++): ?>
-                        <img src="<?php echo htmlspecialchars($covers[$i % count($covers)]); ?>" loading="lazy" alt="" onerror="this.onerror=null;this.src='covers/default.png'">
+                        <img src="<?php echo htmlspecialchars($covers[$i % count($covers)]); ?>" loading="lazy" alt="" class="cc-loading" onload="this.classList.remove('cc-loading')" onerror="this.classList.remove('cc-loading');this.onerror=null;this.src='covers/default.png'">
                     <?php endfor; ?>
                 </div>
                 <h3 class="playlist-card-title"><?php echo htmlspecialchars(fixEntities($p['name'])); ?><?php if (!$isPublic): ?><span class="playlist-private-badge">🔒 <?php echo htmlspecialchars(t('playlist_private_badge')); ?></span><?php endif; ?></h3>
@@ -2153,7 +2175,7 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
         const collage = document.getElementById('playlist-page-collage');
         collage.classList.toggle('single', slots === 1);
         collage.innerHTML = Array.from({ length: slots }, (_, i) =>
-            `<img src="${escapeHTML(covers[i % covers.length])}" loading="lazy" alt="" onerror="this.onerror=null;this.src='covers/default.png'">`
+            `<img src="${escapeHTML(covers[i % covers.length])}" loading="lazy" alt="" class="cc-loading" onload="this.classList.remove('cc-loading')" onerror="this.classList.remove('cc-loading');this.onerror=null;this.src='covers/default.png'">`
         ).join('');
 
         const heroBgImg = document.getElementById('playlist-hero-bg-img');
@@ -2464,7 +2486,7 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
         const artistsGrid = document.getElementById('search-artists-grid');
         if (artists.length) {
             artistsGrid.innerHTML = artists.map(a => `<div class="carousel-card artist-card" onclick="showArtistPage('${jsAttrEscape(a.name)}')">
-                <div class="cc-cover-wrap"><img src="${escapeHTML(a.cover)}" loading="lazy" alt="" onerror="this.onerror=null;this.src='covers/default.png'"></div>
+                <div class="cc-cover-wrap"><img src="${escapeHTML(a.cover)}" loading="lazy" alt="" class="cc-loading" onload="this.classList.remove('cc-loading')" onerror="this.classList.remove('cc-loading');this.onerror=null;this.src='covers/default.png'"></div>
                 <div class="cc-title">${escapeHTML(a.name)}</div>
             </div>`).join('');
             artistsSection.style.display = '';
@@ -2494,7 +2516,7 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
                 const cover = 'api.php?action=album_cover&q=' + a.id + '&t=' + Date.now();
                 const artistHTML = [...a.artists.values()].map(n => escapeHTML(n)).join(', ');
                 return `<div class="carousel-card" onclick="showAlbumPage(${a.id})">
-                    <div class="cc-cover-wrap"><img src="${cover}" loading="lazy" alt="" onerror="this.onerror=null;this.src='covers/default.png'"></div>
+                    <div class="cc-cover-wrap"><img src="${cover}" loading="lazy" alt="" class="cc-loading" onload="this.classList.remove('cc-loading')" onerror="this.classList.remove('cc-loading');this.onerror=null;this.src='covers/default.png'"></div>
                     <div class="cc-title">${escapeHTML(a.name)}</div>
                     <div class="cc-artist">${artistHTML}</div>
                 </div>`;
@@ -2508,18 +2530,32 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
         tracksTitle.innerText = t('songs_title');
     }
 
-    function renderCarouselSection(id, title, tracks) {
-        if (!tracks.length) return '';
-        const cardsHtml = tracks.map(t => {
+    // tracks === null : squelette animé (nombre de cartes fixe, en attendant
+    // encore les données, ex: le temps de l'appel action=recommend).
+    function trackCardsHtml(tracks) {
+        if (tracks === null) {
+            return Array.from({ length: 6 }, () => `<div class="carousel-card">
+                <div class="cc-cover-wrap"><div class="cc-cover-skeleton"></div></div>
+                <div class="cc-title-skeleton"></div>
+                <div class="cc-artist-skeleton"></div>
+            </div>`).join('');
+        }
+        return tracks.map(t => {
             const safeTitle  = escapeHTML(fixEntities(t.title));
             const artistHTML = artistLinksHTML(t.artist);
             const safeCover  = escapeHTML(t.cover_url);
             return `<div class="carousel-card" onclick="playTrackById(${t.id})">
-                <div class="cc-cover-wrap"><img src="${safeCover}" loading="lazy" alt="" onerror="this.onerror=null;this.src='covers/default.png'"></div>
+                <div class="cc-cover-wrap"><img src="${safeCover}" loading="lazy" alt="" class="cc-loading" onload="this.classList.remove('cc-loading')" onerror="this.classList.remove('cc-loading');this.onerror=null;this.src='covers/default.png'"></div>
                 <div class="cc-title">${safeTitle}</div>
                 <div class="cc-artist">${artistHTML}</div>
             </div>`;
         }).join('');
+    }
+
+    // tracks === null affiche un squelette animé à la place (section jamais
+    // masquée dans ce cas, contrairement à une liste vide une fois chargée).
+    function renderCarouselSection(id, title, tracks) {
+        if (tracks !== null && !tracks.length) return '';
         return `<section class="carousel-section">
             <div class="carousel-header">
                 <h3 class="carousel-title">${title}</h3>
@@ -2528,7 +2564,7 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
                     <button class="carousel-nav-btn" onclick="scrollCarousel('${id}',1)" title="${t('next')}">›</button>
                 </div>
             </div>
-            <div class="carousel-track" id="${id}">${cardsHtml}</div>
+            <div class="carousel-track" id="${id}">${trackCardsHtml(tracks)}</div>
         </section>`;
     }
 
@@ -2601,20 +2637,34 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
             .slice(0, 30);
         const hiddenGems = shuffleArray([...leastPopularPool]).slice(0, 15);
 
-        // Recommandé : algorithme serveur (action=recommend), pas un tirage random.
-        const allRecommended = await fetchRecommended();
-        let recommended = allRecommended.filter(t => !hiddenGenres.includes(t.genre || 'Autre'));
-        if (selectedHomeGenre !== null) recommended = recommended.filter(t => (t.genre || 'Autre') === selectedHomeGenre);
-        recommended = recommended.slice(0, 15);
-        if (!recommended.length) recommended = shuffleArray([...visible]).slice(0, 15);
+        function buildRecommended(list) {
+            let recommended = list.filter(t => !hiddenGenres.includes(t.genre || 'Autre'));
+            if (selectedHomeGenre !== null) recommended = recommended.filter(t => (t.genre || 'Autre') === selectedHomeGenre);
+            recommended = recommended.slice(0, 15);
+            if (!recommended.length) recommended = shuffleArray([...visible]).slice(0, 15);
+            return recommended;
+        }
 
-        // Le conteneur a pu être retiré du DOM (changement de page) pendant l'attente.
-        if (!document.getElementById('home-carousels')) return;
-
+        // Populaire/Pépites cachées sont dérivés localement (aucune attente
+        // réseau nécessaire) et s'affichent tout de suite ; Recommandé affiche
+        // un squelette animé le temps de l'appel action=recommend, au lieu de
+        // bloquer l'affichage des trois carrousels derrière ce seul appel.
+        // Si le cache est déjà chaud (ex: on revient d'un filtre de genre),
+        // pas besoin de squelette, la vraie liste est déjà disponible.
+        const cacheReady = recommendedCache !== null;
         container.innerHTML =
-            renderCarouselSection('carousel-recommended', t('recommended_for_you'), recommended) +
+            renderCarouselSection('carousel-recommended', t('recommended_for_you'), cacheReady ? buildRecommended(recommendedCache) : null) +
             renderCarouselSection('carousel-popular', t('popular'), popular) +
             renderCarouselSection('carousel-hidden-gems', t('hidden_gems'), hiddenGems);
+
+        if (cacheReady) return;
+
+        const allRecommended = await fetchRecommended();
+
+        // La page a pu être quittée pendant l'attente.
+        const track = document.getElementById('carousel-recommended');
+        if (!track) return;
+        track.innerHTML = trackCardsHtml(buildRecommended(allRecommended));
     }
 
     // ── Grille "Albums" : un album par album_id distinct, dérivé de
@@ -2649,7 +2699,7 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
                 .join(', ');
             const cover = 'api.php?action=album_cover&q=' + a.id + '&t=' + Date.now();
             return `<div class="carousel-card" onclick="showAlbumPage(${a.id})">
-                <div class="cc-cover-wrap"><img src="${cover}" loading="lazy" alt="" onerror="this.onerror=null;this.src='covers/default.png'"></div>
+                <div class="cc-cover-wrap"><img src="${cover}" loading="lazy" alt="" class="cc-loading" onload="this.classList.remove('cc-loading')" onerror="this.classList.remove('cc-loading');this.onerror=null;this.src='covers/default.png'"></div>
                 <div class="cc-title">${safeName}</div>
                 <div class="cc-artist">${artistHTML}</div>
             </div>`;
@@ -2684,7 +2734,7 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
         container.innerHTML = artists.map(a => {
             const safeName = escapeHTML(a.name);
             return `<div class="carousel-card artist-card" onclick="showArtistPage('${jsAttrEscape(a.name)}')">
-                <div class="cc-cover-wrap"><img src="${escapeHTML(a.cover)}" loading="lazy" alt="" onerror="this.onerror=null;this.src='covers/default.png'"></div>
+                <div class="cc-cover-wrap"><img src="${escapeHTML(a.cover)}" loading="lazy" alt="" class="cc-loading" onload="this.classList.remove('cc-loading')" onerror="this.classList.remove('cc-loading');this.onerror=null;this.src='covers/default.png'"></div>
                 <div class="cc-title">${safeName}</div>
             </div>`;
         }).join('');
