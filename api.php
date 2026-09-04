@@ -593,13 +593,8 @@ switch($action) {
             }
         }
 
-        // Score d'affinité pur (sans aléatoire mélangé dedans) : un petit
-        // jitter additionné au score puis trié ne suffit pas à faire varier
-        // le résultat d'un appel à l'autre dès qu'un signal d'affinité réel
-        // existe (l'écart de score entre pistes pertinentes et le reste
-        // dépasse largement l'amplitude du jitter, donc le tri retombe
-        // presque toujours sur le même ordre — c'est ce qui rendait les
-        // recommandations figées pour un compte avec de l'historique).
+        $hasAffinity = $genreAffinity || $artistAffinity || $albumAffinity;
+
         $scored = [];
         foreach ($tracks as $t) {
             if (isset($ownedIds[(int)$t['id']])) continue;
@@ -607,21 +602,13 @@ switch($action) {
             $score += ($artistAffinity[$t['artist']] ?? 0) * 8;
             $score += ($albumAffinity[$t['album_id']] ?? 0) * 6;
             $score += log(1 + (int)$t['play_count']) * 1.5;
+            $score += (mt_rand() / mt_getrandmax()) * ($hasAffinity ? 3 : 6);
             $t['_score'] = $score;
             $scored[] = $t;
         }
+
         usort($scored, fn($a, $b) => $b['_score'] <=> $a['_score']);
-
-        // On garde un bassin de candidats plus large que $limit (les mieux
-        // notés, donc toujours pertinents), puis on le mélange et on en tire
-        // $limit : la sélection ET leur ordre changent à chaque appel, tout
-        // en restant tirés des morceaux qui correspondent réellement au
-        // profil de goût plutôt que de la bibliothèque entière.
-        $poolSize = min(count($scored), max($limit * 3, $limit + 15));
-        $pool = array_slice($scored, 0, $poolSize);
-        shuffle($pool);
-        $result = array_slice($pool, 0, $limit);
-
+        $result = array_slice($scored, 0, $limit);
         foreach ($result as &$t) {
             unset($t['_score']);
             $t['cover_url'] = $baseUrl . "api.php?action=cover&q=" . $t['id'] . "&t=" . time();
