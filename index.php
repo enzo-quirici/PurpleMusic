@@ -880,6 +880,12 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
         .progress-bg { background:rgba(255,255,255,.1); height:6px; border-radius:10px; cursor:pointer; position:relative; overflow:hidden; }
         .progress-fill { background:linear-gradient(90deg,var(--primary),var(--accent)); height:100%; width:0%; border-radius:10px; }
         .control-btn { background:none; border:none; color:var(--player-text); cursor:pointer; opacity:.8; transition:.2s; padding:8px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+        /* #loopBtn n'avait pas position:relative contrairement à #fp-loopBtn :
+           .loop-badge (position:absolute) remontait alors jusqu'à #player-bar
+           (le prochain ancêtre positionné) au lieu de se coller au bouton,
+           faisant apparaître le badge "1"/répétition à un endroit différent
+           entre la barre normale et le lecteur plein écran. */
+        #loopBtn, #fp-loopBtn { position:relative; }
         .control-btn svg { width:20px; height:20px; fill:var(--player-text); display:block; transition:transform .15s ease; }
         .control-btn:hover { background:rgba(255,255,255,.1); opacity:1; }
         .control-btn:active svg { transform:scale(.85); }
@@ -988,7 +994,7 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
         .fp-tab-btn.active { opacity:1; border-bottom-color:var(--accent); color:var(--accent); }
         .fp-sidebar-close { display:none; background:none; border:none; cursor:pointer; padding:0 14px; opacity:.6; flex-shrink:0; }
         .fp-sidebar-close:hover { opacity:1; }
-        .fp-sidebar-content { flex:1; overflow-y:auto; padding:15px 10px; }
+        .fp-sidebar-content { flex:1; overflow-y:auto; padding:15px 10px; overflow-anchor:none; }
         .fp-tab-pane { display:none; }
         .fp-tab-pane.active { display:block; }
 
@@ -999,7 +1005,7 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
            plein écran est actif, via le sélecteur #full-player.active ci-dessous. */
         .fp-bottombar { position:fixed; left:0; bottom:0; width:100%; height:72px; display:none; grid-template-columns:1fr auto 1fr; align-items:center; column-gap:20px; padding:0 24px; border-top:1px solid rgba(255,255,255,.1); background:var(--player-bg); backdrop-filter:blur(20px) saturate(180%); box-sizing:border-box; z-index:5001; cursor:pointer; }
         #full-player.active .fp-bottombar { display:grid; }
-        .fp-bb-track { display:flex; align-items:center; gap:12px; justify-self:center; max-width:320px; min-width:0; overflow:hidden; }
+        .fp-bb-track { display:flex; align-items:center; gap:12px; justify-self:center; max-width:320px; min-width:0; overflow:hidden; cursor:pointer; }
         .fp-bb-track img { width:44px; height:44px; border-radius:8px; object-fit:cover; flex-shrink:0; box-shadow:0 4px 10px rgba(0,0,0,.3); }
         .fp-bb-info { overflow:hidden; }
         #fp-title { font-size:.95em; font-weight:700; white-space:nowrap; overflow:hidden; position:relative; mask-image:linear-gradient(to right,transparent 0%,black 5%,black 95%,transparent 100%); -webkit-mask-image:linear-gradient(to right,transparent 0%,black 5%,black 95%,transparent 100%); }
@@ -1011,7 +1017,7 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
         @keyframes viewFadeIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
         .track-item { animation:trackFadeIn .3s cubic-bezier(.2,.8,.2,1) backwards; }
         @keyframes trackFadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
-        #fp-artist { font-size:.8em; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        #fp-artist { font-size:.75em; color:var(--accent); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .fp-bb-play svg { width:18px !important; height:18px !important; }
 
         #mobile-bottom-nav { display:none; position:fixed; bottom:0; left:0; width:100%; background:var(--mob-nav-bg); backdrop-filter:blur(15px); border-top:1px solid rgba(255,255,255,.05); z-index:3000; justify-content:space-around; padding:10px 0 15px 0; height:70px; box-sizing:border-box; }
@@ -1614,7 +1620,7 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="var(--player-text)"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
                 <input type="range" id="mobile-vol" class="vol-slider" min="0" max="1" step="0.01" value="1">
             </div>
-            <button class="control-btn" id="fp-loopBtn" onclick="toggleLoop()" style="position:relative;" title="<?php echo htmlspecialchars(t('normal_playback')); ?>"><svg viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg><span class="loop-badge">1</span></button>
+            <button class="control-btn" id="fp-loopBtn" onclick="toggleLoop()" title="<?php echo htmlspecialchars(t('normal_playback')); ?>"><svg viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg><span class="loop-badge">1</span></button>
             <button class="control-btn" id="fp-shuffleBtn" onclick="toggleShuffle()"><svg viewBox="0 0 24 24"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg></button>
         </div>
     </div>
@@ -2540,11 +2546,17 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
                 <div class="cc-artist-skeleton"></div>
             </div>`).join('');
         }
+        // playTrackFromIds (pas playTrackById) : un carrousel (populaire, pépites
+        // cachées, recommandé...) est un sous-ensemble/ordre qui n'a souvent rien
+        // à voir avec CURRENT_VIEW_DATA (liste principale triée/recherchée) — il
+        // faut donc construire la file à partir de CETTE liste précise, comme le
+        // fait déjà playTrackFromList() pour les pages artiste/album/playlist.
+        const idsAttr = tracks.map(tr => tr.id).join(',');
         return tracks.map(t => {
             const safeTitle  = escapeHTML(fixEntities(t.title));
             const artistHTML = artistLinksHTML(t.artist);
             const safeCover  = escapeHTML(t.cover_url);
-            return `<div class="carousel-card" onclick="playTrackById(${t.id})">
+            return `<div class="carousel-card" onclick="playTrackFromIds(${t.id},'${idsAttr}')">
                 <div class="cc-cover-wrap"><img src="${safeCover}" loading="lazy" alt="" class="cc-loading" onload="this.classList.remove('cc-loading')" onerror="this.classList.remove('cc-loading');this.onerror=null;this.src='covers/default.png'"></div>
                 <div class="cc-title">${safeTitle}</div>
                 <div class="cc-artist">${artistHTML}</div>
@@ -2842,15 +2854,24 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
     }
 
     function playTrackById(id, autoPlay = true) {
-        if (!currentPlaylistId) {
-            originalQueue = [...CURRENT_VIEW_DATA];
-            queue = isShuffle ? shuffleArray([...originalQueue]) : [...originalQueue];
-            currentIndex = queue.findIndex(t => t.id == id);
-        } else {
-            let i = queue.findIndex(t => t.id == id);
-            if (i === -1) { currentPlaylistId = null; return playTrackById(id, autoPlay); }
-            currentIndex = i;
-        }
+        // Toujours reconstruire une file neuve à partir de CURRENT_VIEW_DATA,
+        // même si une playlist est en cours de lecture : ce handler est celui
+        // de la liste principale/des carrousels, pas celui de la page playlist
+        // (playTrackInPlaylist) — réutiliser l'ancienne file par simple
+        // recherche d'id (comme avant) rejouait à tort dans la file de la
+        // playlist encore active dès que le morceau cliqué ailleurs s'y
+        // trouvait aussi, au lieu de démarrer une file propre à cette liste.
+        currentPlaylistId = null;
+        // La file doit démarrer sur le morceau cliqué : on fait tourner
+        // CURRENT_VIEW_DATA (qui peut être triée par popularité, date...)
+        // pour que les morceaux précédant celui cliqué passent à la fin
+        // au lieu de s'afficher avant lui dans la file d'attente.
+        const startIdx = CURRENT_VIEW_DATA.findIndex(t => t.id == id);
+        originalQueue = startIdx > 0
+            ? [...CURRENT_VIEW_DATA.slice(startIdx), ...CURRENT_VIEW_DATA.slice(0, startIdx)]
+            : [...CURRENT_VIEW_DATA];
+        queue = isShuffle ? shuffleArray([...originalQueue]) : [...originalQueue];
+        currentIndex = isShuffle ? queue.findIndex(t => t.id == id) : 0;
         if (currentIndex === -1) currentIndex = 0;
         loadTrack(autoPlay);
     }
@@ -2868,12 +2889,29 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
         if (hiddenGenres.length) rest = rest.filter(tr => !hiddenGenres.includes(tr.genre || 'Autre'));
         const continuation = shuffleArray([...rest]);
 
+        // Comme playTrackById() : la file doit démarrer sur le morceau cliqué,
+        // pas sur le début de `list' — sans quoi les morceaux qui le précèdent
+        // dans `list' (ex: pistes précédentes de l'album/artiste/carrousel)
+        // s'afficheraient à tort avant lui dans la file d'attente.
+        const startIdx = list.findIndex(t => t.id == id);
+        const rotatedList = startIdx > 0 ? [...list.slice(startIdx), ...list.slice(0, startIdx)] : list;
+
         currentPlaylistId = null;
-        originalQueue = [...list, ...continuation];
+        originalQueue = [...rotatedList, ...continuation];
         queue = isShuffle ? shuffleArray([...originalQueue]) : [...originalQueue];
-        currentIndex = queue.findIndex(t => t.id == id);
+        currentIndex = isShuffle ? queue.findIndex(t => t.id == id) : 0;
         if (currentIndex === -1) currentIndex = 0;
         loadTrack(autoPlay);
+    }
+
+    // Variante de playTrackFromList() pour les carrousels (populaire, pépites
+    // cachées, recommandé...) : leurs cartes ne portent que des ids dans leur
+    // attribut onclick (pas les objets pistes complets), donc on les résout
+    // depuis ALL_MUSIC_DATA avant de déléguer à playTrackFromList().
+    function playTrackFromIds(id, idsStr) {
+        const ids = idsStr.split(',').map(Number);
+        const list = ids.map(tid => ALL_MUSIC_DATA.find(t => t.id === tid)).filter(Boolean);
+        playTrackFromList(id, list);
     }
 
     function playTrackInArtist(id) {
@@ -2905,10 +2943,14 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
         const idList = String(currentViewedPlaylist.song_ids).split(',').map(Number).filter(Boolean);
         const tracks = idList.map(tid => ALL_MUSIC_DATA.find(t => t.id === tid)).filter(Boolean);
         if (!tracks.length) return;
+        // Comme playTrackById()/playTrackFromList() : démarrer sur le morceau
+        // cliqué plutôt que sur le début de la playlist.
+        const startIdx = tracks.findIndex(t => t.id == id);
+        const rotatedTracks = startIdx > 0 ? [...tracks.slice(startIdx), ...tracks.slice(0, startIdx)] : tracks;
         currentPlaylistId = currentViewedPlaylist.id;
-        originalQueue = [...tracks];
+        originalQueue = [...rotatedTracks];
         queue = isShuffle ? shuffleArray([...originalQueue]) : [...originalQueue];
-        currentIndex = queue.findIndex(t => t.id == id);
+        currentIndex = isShuffle ? queue.findIndex(t => t.id == id) : 0;
         if (currentIndex === -1) currentIndex = 0;
         loadTrack(true);
     }
@@ -2998,7 +3040,7 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
 
         const fpTitle = document.getElementById('fp-title');
         fpTitle.innerHTML = `<span id="fp-title-text">${escapeHTML(fixEntities(track.title))}</span>`;
-        document.getElementById('fp-artist').innerHTML = artistLinksHTML(track.artist);
+        document.getElementById('fp-artist').innerHTML = artistLinksHTML(track.artist) + albumLinkHTML(track);
         document.getElementById('fp-cover').src = track.cover_url;
         document.getElementById('fp-bb-cover').src = track.cover_url;
         const bgImg = document.getElementById('fp-bg-img');
@@ -3788,6 +3830,7 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
         if (!parsed.length) {
             panel.innerHTML = `<p class="lyrics-status" style="white-space:pre-line;">${escapeHTML(fixEntitiesLiteral(lrc))}</p>`;
             currentParsedLyrics = [];
+            resetLyricsScroll();
             return;
         }
         currentParsedLyrics = parsed;
@@ -3795,6 +3838,23 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
         // gardent le symbole "&" littéral plutôt que le mot "and"/"et" : remplacer un
         // "&" par un mot en pleine phrase de chanson en altérerait le texte original.
         panel.innerHTML = parsed.map(l => `<p class="lyric-line" data-time="${l.time}" onclick="seekLyric(${l.time})">${escapeHTML(fixEntitiesLiteral(l.text))}</p>`).join('');
+        resetLyricsScroll();
+    }
+
+    // Remet le panneau en haut après un changement de morceau. Le forçage au
+    // début de fetchLyrics() (avant même le fetch réseau) coupe court à un
+    // éventuel scroll fluide encore en cours vers les dernières lignes du
+    // morceau précédent ; ce second passage, après la mise à jour du DOM et
+    // sur une frame suivante, rattrape les cas où le navigateur recadre le
+    // scroll après coup (scroll anchoring, reflow du backdrop-filter, etc.).
+    function resetLyricsScroll() {
+        const sidebarContent = document.querySelector('.fp-sidebar-content');
+        if (sidebarContent) sidebarContent.scrollTop = 0;
+        pinFullPlayerScroll();
+        requestAnimationFrame(() => {
+            if (sidebarContent) sidebarContent.scrollTop = 0;
+            pinFullPlayerScroll();
+        });
     }
 
     async function fetchLyrics(track) {
@@ -3803,12 +3863,10 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
         // Repart du haut du panneau à chaque nouveau morceau : sans ça, si on
         // avait défilé jusqu'en bas des paroles précédentes (longues) et que
         // le morceau suivant a des paroles courtes/absentes, la position de
-        // scroll reste sur l'ancienne valeur. Certains moteurs la re-cadrent
-        // automatiquement au prochain repaint, d'autres non (notamment en
-        // combinaison avec le backdrop-filter du panneau) — d'où le fait de le
-        // forcer explicitement plutôt que de compter sur ce recadrage.
-        const sidebarContent = document.querySelector('.fp-sidebar-content');
-        if (sidebarContent) sidebarContent.scrollTop = 0;
+        // scroll reste sur l'ancienne valeur. Ce premier passage coupe court
+        // à un scroll fluide encore en cours (voir resetLyricsScroll() pour
+        // le second passage, après le rendu du nouveau morceau).
+        resetLyricsScroll();
         const myReq = ++lyricsRequestId;
         const cacheKey = 'lyrics_' + track.id;
         const cached = localStorage.getItem(cacheKey);
@@ -3848,7 +3906,47 @@ foreach ($all_tracks as $t) $tracksById[(string)$t['id']] = $t;
         }
         const lines = document.querySelectorAll('#lyrics-content .lyric-line');
         lines.forEach((el, i) => el.classList.toggle('active', i === activeIdx));
-        if (activeIdx >= 0 && lines[activeIdx]) lines[activeIdx].scrollIntoView({ block: 'center', behavior: 'smooth' });
+        // On évite volontairement lines[activeIdx].scrollIntoView({block:'center'}) :
+        // quand la ligne active est trop proche du début/fin de la liste pour être
+        // vraiment centrée dans .fp-sidebar-content, Chrome reporte le reste du
+        // défilement demandé sur les conteneurs ancêtres suivants dans la chaîne
+        // (#fp-sidebar puis #full-player, tous deux en overflow:hidden) — ce qui
+        // décale visuellement tout le lecteur plein écran au lieu de rester
+        // confiné au panneau des paroles. On calcule donc le scrollTop cible
+        // nous-mêmes et on l'applique uniquement au panneau via scrollTo().
+        if (activeIdx >= 0 && lines[activeIdx]) {
+            const container = document.querySelector('.fp-sidebar-content');
+            const el = lines[activeIdx];
+            if (container) {
+                // getBoundingClientRect() plutôt que offsetTop : aucun élément entre
+                // .fp-sidebar-content et .lyric-line n'a de position autre que static,
+                // donc offsetTop remonterait jusqu'à #full-player (position:fixed, le
+                // premier ancêtre positionné) au lieu du panneau des paroles.
+                const elRect = el.getBoundingClientRect();
+                const containerRect = container.getBoundingClientRect();
+                const elTopInContainer = (elRect.top - containerRect.top) + container.scrollTop;
+                const target = elTopInContainer - (container.clientHeight / 2) + (elRect.height / 2);
+                const max = container.scrollHeight - container.clientHeight;
+                container.scrollTo({ top: Math.max(0, Math.min(target, max)), behavior: 'smooth' });
+            }
+            pinFullPlayerScroll();
+        }
+    }
+
+    // Garde-fou : #full-player, #fp-sidebar et .fp-body n'ont jamais de raison
+    // légitime de défiler (tout leur contenu tient dans leur zone, seul
+    // .fp-sidebar-content est fait pour défiler) ; on force donc leur
+    // scrollTop à 0 après chaque manipulation de scroll dans le panneau des
+    // paroles, au cas où le navigateur y reporterait malgré tout un reliquat
+    // de défilement (ce qui décale visuellement tout le lecteur et cache le
+    // reste de l'UI) — quelle qu'en soit la cause exacte selon le moteur.
+    function pinFullPlayerScroll() {
+        ['full-player', 'fp-sidebar'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el && el.scrollTop !== 0) el.scrollTop = 0;
+        });
+        const fpBody = document.querySelector('.fp-body');
+        if (fpBody && fpBody.scrollTop !== 0) fpBody.scrollTop = 0;
     }
 </script>
 
